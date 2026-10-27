@@ -1,0 +1,3417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#07070a">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Workline">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<title>Workline // Time Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap');
+
+  :root{
+    --void: #07070a;
+    --void-2: #0e0e14;
+    --panel: #121218;
+    --panel-2: #17171f;
+    --line: #2b2b36;
+    --yellow: #fcee0a;
+    --yellow-dim: #a89f00;
+    --cyan: #00f0ff;
+    --magenta: #ff2a6d;
+    --text: #eef0f2;
+    --text-dim: #82828f;
+    --text-faint: #4c4c58;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --tabbar-h: 62px;
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden]{ display: none !important; }
+  html, body{
+    margin:0; padding:0;
+    height: 100%;
+    overscroll-behavior-y: none;
+    background: var(--void);
+  }
+
+  body{
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100dvh;
+    position: relative;
+    overflow-x: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  body.sheet-open{ overflow: hidden; }
+
+  input, select, textarea, .log-task{ -webkit-user-select: text; user-select: text; }
+
+  button{ touch-action: manipulation; -webkit-touch-callout: none; }
+
+  /* ambient grid + vignette */
+  body::before{
+    content:"";
+    position: fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(0,240,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,240,255,0.035) 1px, transparent 1px);
+    background-size: 42px 42px;
+    pointer-events: none;
+    z-index: 0;
+    mask-image: radial-gradient(ellipse at 50% 20%, black 0%, transparent 75%);
+  }
+  body::after{
+    content:"";
+    position: fixed; inset:0;
+    background: radial-gradient(ellipse at 50% 0%, transparent 40%, rgba(0,0,0,0.75) 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .scanlines{
+    position: fixed; inset:0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 2px,
+      transparent 3px
+    );
+    pointer-events:none;
+    z-index: 50;
+    opacity: 0.6;
+  }
+
+  @keyframes flicker{
+    0%,100%{ opacity:0.6; }
+    92%{ opacity:0.6; }
+    93%{ opacity:0.4; }
+    94%{ opacity:0.6; }
+    96%{ opacity:0.35; }
+    97%{ opacity:0.6; }
+  }
+  .scanlines{ animation: flicker 6s infinite; }
+
+  .app{
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+    margin: 0 auto;
+    padding:
+      calc(20px + var(--sat)) calc(18px + var(--sar)) calc(24px + var(--tabbar-h) + var(--sab)) calc(18px + var(--sal));
+  }
+
+  /* ---------- header ---------- */
+  header{
+    display:flex; flex-wrap: wrap; align-items:flex-end; justify-content:space-between; gap: 8px 12px;
+    margin-bottom: 18px;
+  }
+
+  .eyebrow{
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 2.5px;
+    color: var(--cyan);
+    text-transform: uppercase;
+  }
+
+  h1{
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: clamp(26px, 8vw, 34px);
+    letter-spacing: 1.5px;
+    color: var(--yellow);
+    margin: 4px 0 0;
+    position: relative;
+    text-shadow: 0 0 18px rgba(252,238,10,0.35);
+    display: inline-block;
+  }
+  h1 .glitch-layer{
+    position:absolute; left:0; top:0;
+    width:100%; height:100%;
+    overflow:hidden;
+    color: var(--cyan);
+    clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
+  }
+  h1 .glitch-layer.magenta{ color: var(--magenta); }
+
+  @keyframes glitchTop{
+    0%,88%,100%{ clip-path: polygon(0 0,100% 0,100% 0,0 0); transform: translate(0,0); }
+    89%{ clip-path: polygon(0 20%,100% 20%,100% 34%,0 34%); transform: translate(-3px,0); }
+    90%{ clip-path: polygon(0 55%,100% 55%,100% 63%,0 63%); transform: translate(3px,0); }
+    91%{ clip-path: polygon(0 10%,100% 10%,100% 18%,0 18%); transform: translate(-2px,0); }
+    92%{ clip-path: polygon(0 0,100% 0,100% 0,0 0); transform: translate(0,0); }
+  }
+  @keyframes glitchBottom{
+    0%,90%,100%{ clip-path: polygon(0 0,100% 0,100% 0,0 0); transform: translate(0,0); }
+    91%{ clip-path: polygon(0 40%,100% 40%,100% 50%,0 50%); transform: translate(3px,0); }
+    92%{ clip-path: polygon(0 70%,100% 70%,100% 82%,0 82%); transform: translate(-3px,0); }
+    93%{ clip-path: polygon(0 0,100% 0,100% 0,0 0); transform: translate(0,0); }
+  }
+  h1 .glitch-layer.cyan{ animation: glitchTop 5.2s infinite steps(1); }
+  h1 .glitch-layer.magenta{ animation: glitchBottom 6.6s infinite steps(1); }
+
+  .subtitle{
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-top: 6px;
+    white-space: nowrap;
+  }
+
+  .status-row{
+    display:flex; align-items:center; gap:8px;
+    padding-bottom: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .status-dot{
+    width:9px; height:9px; border-radius:50%;
+    background: var(--text-faint);
+  }
+  .status-dot.on{
+    background: var(--cyan);
+    box-shadow: 0 0 8px 2px rgba(0,240,255,0.7);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .status-dot.brk{
+    background: var(--yellow);
+    box-shadow: 0 0 8px 2px rgba(252,238,10,0.6);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:0.4; }
+  }
+  .status-text{ color: var(--text-dim); }
+  .status-text.on{ color: var(--cyan); }
+  .status-text.brk{ color: var(--yellow); }
+  .status-text::after{ content:"_"; animation: blink 1s step-end infinite; }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  /* ---------- cut-corner frame system ---------- */
+  .cut{
+    clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+  }
+  .cut-sm{
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+  }
+  .frame{
+    position: relative;
+    padding: 1.5px;
+    background: linear-gradient(135deg, var(--line), var(--line));
+  }
+  .frame.accent-yellow{ background: linear-gradient(135deg, var(--yellow), rgba(252,238,10,0.15)); }
+  .frame.accent-cyan{ background: linear-gradient(135deg, var(--cyan), rgba(0,240,255,0.15)); }
+  .frame-inner{
+    background: var(--panel);
+    height: 100%;
+  }
+
+  section{ margin-bottom: 16px; }
+
+  .panel-label{
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 2.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin: 0 0 14px;
+  }
+  .panel-label span{ color: var(--yellow); }
+
+  .surplus{ color: var(--cyan) !important; }
+  .deficit{ color: var(--magenta) !important; }
+  .even{ color: var(--yellow) !important; }
+
+  /* ---------- shared buttons + inputs ---------- */
+  .mini-btn{
+    background:none;
+    border: 1px solid var(--line);
+    color: var(--yellow);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    padding: 8px 11px;
+    cursor:pointer;
+    white-space: nowrap;
+  }
+  .mini-btn:active{ border-color: var(--yellow); background: rgba(252,238,10,0.06); }
+  .mini-btn.wide{ display:block; width:100%; margin-top: 12px; padding: 13px 12px; }
+
+  .ghost-btn{
+    min-height: 46px;
+    padding: 0 12px;
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 1.5px;
+    cursor:pointer;
+  }
+  .ghost-btn:active{ border-color: var(--cyan); color: var(--cyan); }
+  .ghost-btn.danger{ color: var(--magenta); border-color: rgba(255,42,109,0.4); }
+
+  .primary-btn{
+    min-height: 46px;
+    padding: 0 14px;
+    border:none;
+    background: var(--yellow);
+    color: #0a0a0a;
+    font-family:'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    cursor:pointer;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+  .primary-btn:active{ filter: brightness(1.12); }
+
+  .inp{
+    width: 100%;
+    min-height: 48px;
+    background-color: var(--void-2);
+    border: 1px solid var(--line);
+    border-radius: 0;
+    color: var(--text);
+    color-scheme: dark;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    padding: 11px 12px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .inp:focus{ border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,240,255,0.15); }
+  .inp::placeholder{ color: var(--text-faint); }
+  input[type=date].inp, input[type=time].inp{ font-family:'Share Tech Mono', monospace; }
+  select.inp{
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--yellow) 50%),
+      linear-gradient(135deg, var(--yellow) 50%, transparent 50%);
+    background-position: calc(100% - 17px) 52%, calc(100% - 12px) 52%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 30px;
+  }
+
+  /* ---------- views + tab bar ---------- */
+  .view{ display:none; }
+  .view.active{ display:block; animation: viewIn .18s ease-out; }
+  @keyframes viewIn{
+    from{ opacity:0; transform: translateY(6px); }
+    to{ opacity:1; transform: none; }
+  }
+
+  .tabbar{
+    position: fixed; left:0; right:0; bottom:0;
+    z-index: 40;
+    background: rgba(14,14,20,0.96);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line);
+    padding: 0 var(--sar) var(--sab) var(--sal);
+  }
+  .tabbar-inner{
+    max-width: 520px;
+    margin: 0 auto;
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .tab{
+    position: relative;
+    height: var(--tabbar-h);
+    background:none; border:none;
+    color: var(--text-faint);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 5px;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    cursor:pointer;
+    padding: 0 2px;
+  }
+  .tab svg{ width:22px; height:22px; fill:none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: square; }
+  .tab.active{ color: var(--yellow); }
+  .tab.active::before{
+    content:"";
+    position:absolute; top:-1px; left:24%; right:24%;
+    height:2px;
+    background: var(--yellow);
+    box-shadow: 0 0 8px rgba(252,238,10,0.6);
+  }
+  .tab .live-dot{
+    display:none;
+    position:absolute; top: 9px; left: calc(50% + 9px);
+    width:7px; height:7px; border-radius:50%;
+    background: var(--cyan);
+    box-shadow: 0 0 6px 1px rgba(0,240,255,0.7);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .tab.live .live-dot, .tab.brk .live-dot{ display:block; }
+  .tab.brk .live-dot{ background: var(--yellow); box-shadow: 0 0 6px 1px rgba(252,238,10,0.6); }
+
+  /* ---------- HUD / clock section ---------- */
+  .hud-inner{ padding: 22px 18px 20px; }
+
+  .hud-warn{
+    display:flex; align-items:center; justify-content:space-between; gap: 10px;
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,42,109,0.5);
+    background: rgba(255,42,109,0.08);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+    line-height: 1.4;
+    color: var(--magenta);
+    text-transform: uppercase;
+  }
+  .hud-warn .mini-btn{ color: var(--magenta); border-color: rgba(255,42,109,0.5); }
+
+  .task-field label{
+    display:block;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.8px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .task-field input{
+    width: 100%;
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    padding: 13px 14px;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    outline: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .task-field input:focus{
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 2px rgba(0,240,255,0.15);
+  }
+  .task-field input::placeholder{ color: var(--text-faint); }
+  .task-field input:disabled{
+    color: var(--cyan);
+    border-color: rgba(0,240,255,0.3);
+    background: rgba(0,240,255,0.04);
+    -webkit-text-fill-color: var(--cyan);
+    opacity: 1;
+  }
+
+  .chips{
+    display:flex; gap: 6px;
+    overflow-x: auto;
+    margin-top: 10px;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .chips::-webkit-scrollbar{ display:none; }
+  .chip{
+    flex: 0 0 auto;
+    max-width: 72%;
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    font-family:'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 7px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor:pointer;
+  }
+  .chip:active{ border-color: var(--cyan); color: var(--cyan); }
+
+  .timer-readout{
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(34px, 11vw, 46px);
+    letter-spacing: 2px;
+    color: var(--yellow-dim);
+    text-align: center;
+    margin: 20px 0 4px;
+    text-shadow: 0 0 10px rgba(252,238,10,0.15);
+  }
+  .timer-readout.live{
+    color: var(--cyan);
+    text-shadow: 0 0 16px rgba(0,240,255,0.55);
+  }
+  .timer-readout.brk{
+    color: var(--yellow);
+    text-shadow: 0 0 16px rgba(252,238,10,0.45);
+  }
+  .timer-caption{
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--text-faint);
+    text-align:center;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+    padding: 0 8px;
+  }
+
+  .hud-actions{ display:grid; grid-template-columns: 1fr; gap: 8px; }
+  .hud-actions.split{ grid-template-columns: minmax(0,1fr) minmax(0,1.9fr); }
+
+  .shift-btn{
+    position: relative;
+    width: 100%;
+    padding: 19px 12px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 2px;
+    background: var(--yellow);
+    color: #0a0a0a;
+    clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+    overflow: hidden;
+    transition: filter .15s ease, transform .05s ease;
+  }
+  .shift-btn:active{ transform: scale(0.98); filter: brightness(1.12); }
+  .shift-btn.active{
+    background: var(--magenta);
+    color: #fff;
+    box-shadow: 0 0 22px rgba(255,42,109,0.45);
+  }
+  .shift-btn::before{
+    content:"";
+    position:absolute; top:0; left:-60%;
+    width: 40%; height:100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.5), transparent);
+    transform: skewX(-20deg);
+    transition: left .5s ease;
+  }
+  .shift-btn:active::before{ left: 130%; }
+
+  .sub-btn{
+    width: 100%;
+    border: 1.5px solid var(--cyan);
+    background: rgba(0,240,255,0.05);
+    color: var(--cyan);
+    font-family:'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    cursor:pointer;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+  .sub-btn:active{ background: rgba(0,240,255,0.15); }
+
+  .edit-shift{
+    display:block;
+    margin: 12px auto 0;
+    background:none; border:none;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    padding: 8px 10px;
+    cursor:pointer;
+  }
+  .edit-shift:active{ color: var(--cyan); }
+
+  /* ---------- stats row ---------- */
+  .stats-row{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .stat-inner{ padding: 14px 8px; text-align:center; }
+  .stat-label{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .stat-value{
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(16px, 5.5vw, 22px);
+    color: var(--text);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .stat-value .unit{ font-size: 11px; color: var(--text-dim); margin-left: 2px; }
+
+  /* ---------- progress bars ---------- */
+  .bar{
+    position: relative;
+    height: 8px;
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .bar-fill{
+    position:absolute; left:0; top:0; bottom:0;
+    width: 0;
+    background: linear-gradient(90deg, rgba(0,240,255,0.35), var(--cyan));
+    box-shadow: 0 0 10px rgba(0,240,255,0.5);
+    transition: width .3s ease;
+  }
+  .bar-fill.over{ background: linear-gradient(90deg, var(--cyan), var(--yellow)); }
+  .bar-mark{
+    position:absolute; top:0; bottom:0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--yellow);
+    display:none;
+  }
+
+  /* ---------- targets card (shift view) ---------- */
+  .tgt-inner{ padding: 18px 16px 4px; }
+  .tgt-top{
+    display:flex; justify-content:space-between; align-items:baseline; gap: 10px;
+    margin-bottom: 9px;
+  }
+  .tgt-name{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.8px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .tgt-value{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 15px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .tgt-cap{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .tgt-block{ padding-bottom: 16px; }
+  .tgt-block + .tgt-block{ border-top: 1px solid var(--line); padding-top: 15px; }
+  .glance{
+    display:block; width:100%;
+    background:none; border:none;
+    border-top: 1px solid var(--line);
+    padding: 15px 0 16px;
+    text-align:left;
+    color: inherit; font: inherit;
+    cursor:pointer;
+  }
+  .glance .tgt-value{ font-size: 21px; }
+  .glance .tgt-top{ margin-bottom: 4px; }
+  .glance-go{ color: var(--yellow); }
+  .glance:active .tgt-name{ color: var(--yellow); }
+
+  .week-strip{
+    display:grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .wk-col{ display:flex; flex-direction:column; align-items:center; gap: 4px; min-width: 0; }
+  .wk-track{
+    position: relative;
+    width: 100%;
+    height: 54px;
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .wk-bar{
+    position:absolute; left:0; right:0; bottom:0;
+    background: linear-gradient(0deg, rgba(0,240,255,0.25), rgba(0,240,255,0.75));
+  }
+  .wk-col.met .wk-bar{ background: linear-gradient(0deg, rgba(0,240,255,0.5), var(--cyan)); box-shadow: 0 0 8px rgba(0,240,255,0.5); }
+  .wk-line{ position:absolute; left:0; right:0; height:0; border-top: 1px dashed rgba(252,238,10,0.7); }
+  .wk-col.off .wk-track{
+    background: repeating-linear-gradient(135deg, rgba(255,255,255,0.035) 0 3px, transparent 3px 7px), var(--void);
+    border-color: rgba(255,255,255,0.05);
+  }
+  .wk-lbl{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .wk-col.off .wk-lbl{ color: var(--text-faint); }
+  .wk-col.today .wk-lbl{ color: var(--yellow); }
+  .wk-col.today .wk-track{ border-color: var(--yellow); }
+  .wk-hrs{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 8.5px;
+    color: var(--text-faint);
+    line-height: 1;
+  }
+
+  /* ---------- log ---------- */
+  .log-inner{ padding: 20px 16px 8px; }
+  .log-top{ display:flex; justify-content:space-between; align-items:center; gap: 10px; margin-bottom: 6px; }
+  .log-top .panel-label{ margin: 0; }
+  .log-hint{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 1px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .log-month{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 2px;
+    color: var(--yellow);
+    padding: 14px 0 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .log-month:first-child{ padding-top: 0; }
+  .log-month .log-month-total{ color: var(--text-dim); letter-spacing: 1px; }
+  .log-day-head{
+    display:flex; align-items:center; gap: 8px;
+    padding: 12px 0 4px;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  .log-day-date{ color: var(--cyan); }
+  .log-day-tag{
+    font-size: 8.5px;
+    letter-spacing: 1.2px;
+    color: var(--text-faint);
+    border: 1px solid var(--line);
+    padding: 2px 5px;
+  }
+  .log-day-tag.hol{ color: var(--yellow-dim); border-color: rgba(252,238,10,0.3); }
+  .log-day-total{ margin-left:auto; color: var(--text-dim); }
+  .log-row{
+    display:grid;
+    grid-template-columns: minmax(0,1fr) auto 18px;
+    gap: 8px;
+    align-items:center;
+    width: 100%;
+    background: none;
+    border: none;
+    border-left: 1px solid rgba(0,240,255,0.18);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 11px 0 11px 10px;
+    color: inherit;
+    text-align: left;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: clamp(13px, 3.8vw, 15px);
+    cursor: pointer;
+  }
+  .log-row:active{ background: rgba(0,240,255,0.05); }
+  .log-task{ color: var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .log-task .range{ display:block; font-family:'Share Tech Mono', monospace; font-size: 10px; color: var(--text-faint); font-weight:400; }
+  .log-badge{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    color: var(--yellow-dim);
+    margin-left: 6px;
+  }
+  .log-dur{ font-family:'Share Tech Mono', monospace; color: var(--yellow); text-align:right; font-size: 12.5px; white-space: nowrap; }
+  .log-go{ color: var(--text-faint); font-family:'Share Tech Mono', monospace; font-size: 14px; text-align:center; }
+  .log-del{
+    background:none; border:none; color: var(--text-faint);
+    cursor:pointer; font-size: 16px; text-align:center;
+    padding: 8px 4px;
+    min-width: 34px; min-height: 34px;
+  }
+  .log-del:active{ color: var(--magenta); }
+
+  .empty-state{
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-faint);
+    padding: 18px 0 22px;
+    text-align:center;
+    letter-spacing: 1px;
+  }
+
+  /* ---------- summary: month nav ---------- */
+  .month-nav{
+    display:grid;
+    grid-template-columns: 48px 1fr 48px;
+    align-items:center;
+    gap: 8px;
+  }
+  .nav-btn{
+    height: 48px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--yellow);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 22px;
+    cursor:pointer;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  }
+  .nav-btn:active{ border-color: var(--yellow); background: rgba(252,238,10,0.08); }
+  .month-title{ text-align:center; }
+  .month-name{
+    font-family:'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: clamp(15px, 5vw, 20px);
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+  .month-sub{
+    display:inline-block;
+    margin-top: 4px;
+    background:none; border:none;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 1.8px;
+    color: var(--text-dim);
+    padding: 2px 6px;
+  }
+  .month-sub.back{ color: var(--cyan); cursor:pointer; border: 1px solid rgba(0,240,255,0.35); }
+
+  /* ---------- summary: balance + KPIs ---------- */
+  .sum-inner{ padding: 20px 16px 18px; }
+  .bal-row{
+    display:flex; align-items:center; justify-content:space-between; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .bal-value{
+    font-family:'Share Tech Mono', monospace;
+    font-size: clamp(30px, 10vw, 40px);
+    letter-spacing: 1px;
+    line-height: 1;
+    color: var(--text-dim);
+    text-shadow: 0 0 14px currentColor;
+    white-space: nowrap;
+  }
+  .bal-tag{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 6px 9px;
+    border: 1px solid currentColor;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .bar-cap{
+    display:flex; justify-content:space-between; gap: 8px;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 1px;
+    color: var(--text-faint);
+    margin-top: 7px;
+    text-transform: uppercase;
+  }
+  .kpi-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .kpi{
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    padding: 12px 10px 11px;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    min-width: 0;
+  }
+  .kpi-label{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .kpi-value{
+    font-family:'Share Tech Mono', monospace;
+    font-size: clamp(18px, 6vw, 22px);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .kpi-cap{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.8px;
+    line-height: 1.4;
+    color: var(--text-faint);
+    margin-top: 5px;
+    text-transform: uppercase;
+  }
+  .sum-hint{
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-left: 2px solid var(--yellow);
+    background: rgba(252,238,10,0.04);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+    line-height: 1.5;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+  .rules-row{
+    display:flex; justify-content:space-between; align-items:center; gap: 10px;
+    margin-top: 12px;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 1px;
+    line-height: 1.45;
+    color: var(--text-faint);
+    text-transform: uppercase;
+  }
+  .rules-edit{
+    flex-shrink: 0;
+    background:none;
+    border: 1px solid var(--line);
+    color: var(--yellow);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 1.5px;
+    padding: 8px 11px;
+    cursor:pointer;
+  }
+  .rules-edit:active{ border-color: var(--yellow); }
+
+  /* ---------- summary: calendar ---------- */
+  .cal-inner{ padding: 20px 14px 16px; }
+  .cal-head, .cal-grid{
+    display:grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .cal-head div{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--text-faint);
+    text-align:center;
+    padding-bottom: 6px;
+  }
+  .cal-day{
+    height: 46px;
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 3px;
+    font-family:'Share Tech Mono', monospace;
+    padding: 0;
+    cursor:pointer;
+    clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  }
+  .cal-num{ font-size: 13px; line-height: 1; }
+  .cal-hrs{ font-size: 8.5px; letter-spacing: 0.3px; line-height: 1; min-height: 9px; }
+  .cal-day.off{
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.035) 0 3px, transparent 3px 7px),
+      var(--void);
+    border-color: rgba(255,255,255,0.05);
+    color: var(--text-faint);
+  }
+  .cal-day.hol .cal-hrs{ color: var(--yellow-dim); }
+  .cal-day.leave{
+    background:
+      repeating-linear-gradient(135deg, rgba(252,238,10,0.05) 0 3px, transparent 3px 7px),
+      var(--void-2);
+    border-color: rgba(252,238,10,0.2);
+  }
+  .cal-day.leave .cal-hrs{ color: var(--yellow-dim); }
+  .cal-day.half{ border-style: dashed; }
+  /* holiday / leave / half day marked by the user — stays visible even when the day was worked */
+  .cal-day.marked{ position: relative; }
+  .cal-day.marked::after{
+    content:"";
+    position:absolute; top: 3px; right: 3px;
+    width: 5px; height: 5px;
+    background: var(--yellow);
+  }
+  .cal-day.miss{ border-color: rgba(255,42,109,0.5); }
+  .cal-day.miss .cal-hrs{ color: var(--magenta); }
+  .cal-day.part{ background: rgba(0,240,255,0.08); border-color: rgba(0,240,255,0.45); color: var(--text); }
+  .cal-day.part .cal-hrs{ color: rgba(0,240,255,0.8); }
+  .cal-day.full{ background: rgba(0,240,255,0.2); border-color: var(--cyan); color: var(--text); }
+  .cal-day.full .cal-hrs{ color: var(--cyan); }
+  .cal-day.future{ opacity: 0.5; }
+  .cal-day.untracked{ opacity: 0.3; }
+  .cal-day.today{ border-color: var(--yellow); }
+  .cal-day.today .cal-num{ color: var(--yellow); }
+  .cal-day.sel{ box-shadow: inset 0 0 0 2px var(--text); opacity: 1; }
+  .cal-blank{ height: 46px; }
+
+  .cal-legend{
+    display:flex; flex-wrap:wrap; gap: 8px 14px;
+    margin-top: 14px;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+  }
+  .cal-legend i{
+    display:inline-block;
+    width: 10px; height: 10px;
+    margin-right: 5px;
+    vertical-align: -1px;
+    border: 1px solid var(--line);
+    background: var(--void-2);
+  }
+  .cal-legend i.full{ background: rgba(0,240,255,0.2); border-color: var(--cyan); }
+  .cal-legend i.part{ background: rgba(0,240,255,0.08); border-color: rgba(0,240,255,0.45); }
+  .cal-legend i.miss{ border-color: var(--magenta); }
+  .cal-legend i.off{ background: repeating-linear-gradient(135deg, rgba(255,255,255,0.12) 0 2px, transparent 2px 4px), var(--void); }
+  .cal-legend i.leave{ background: repeating-linear-gradient(135deg, rgba(252,238,10,0.25) 0 2px, transparent 2px 4px), var(--void-2); border-color: rgba(252,238,10,0.3); }
+  .cal-legend i.mk{ width: 5px; height: 5px; border: none; background: var(--yellow); vertical-align: 1px; }
+
+  .day-detail{
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+  }
+  .dd-top{ display:flex; justify-content:space-between; align-items:baseline; gap: 10px; }
+  .dd-date{ color: var(--cyan); font-size: 12px; }
+  .dd-type{ margin-top: 4px; color: var(--text-dim); }
+  .dd-val{ color: var(--text); font-size: 12px; white-space: nowrap; }
+  .dd-row{
+    display:flex; justify-content:space-between; align-items:center; gap: 10px;
+    width: 100%;
+    background: none;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 9px 0;
+    color: inherit;
+    text-align: left;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .dd-row:active{ background: rgba(0,240,255,0.05); }
+  .dd-task{ min-width: 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color: var(--text); font-family:'Rajdhani', sans-serif; font-weight:600; font-size: 13px; }
+  .dd-task small{ color: var(--text-faint); font-family:'Share Tech Mono', monospace; font-size: 10px; font-weight: 400; margin-left: 4px; }
+  .dd-dur{ color: var(--yellow); white-space: nowrap; }
+  .dd-label{ margin: 14px 0 7px; color: var(--text-dim); font-size: 9.5px; letter-spacing: 1.5px; }
+
+  /* ---------- segmented controls ---------- */
+  .seg{
+    display:grid;
+    grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: 4px;
+  }
+  .seg.seg-4{ grid-template-columns: repeat(4, minmax(0,1fr)); }
+  .seg button{
+    height: 44px;
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor:pointer;
+    padding: 0;
+  }
+  .seg.seg-4 button{ font-size: 10px; letter-spacing: 0.5px; height: 40px; }
+  .seg button.on{
+    background: var(--yellow);
+    border-color: var(--yellow);
+    color: #0a0a0a;
+  }
+
+  /* ---------- summary: projects ---------- */
+  .proj-inner{ padding: 20px 16px 8px; }
+  .proj-row{ padding-bottom: 13px; }
+  .proj-top{
+    display:flex; justify-content:space-between; align-items:baseline; gap: 10px;
+    margin-bottom: 6px;
+  }
+  .proj-name{
+    min-width: 0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    font-family:'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .proj-row.other .proj-name{ color: var(--text-dim); }
+  .proj-val{
+    flex-shrink: 0;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--yellow);
+  }
+  .proj-val small{ color: var(--text-faint); font-size: 10px; margin-left: 4px; }
+  .proj-bar{ height: 5px; background: var(--void-2); overflow: hidden; }
+  .proj-bar div{ height: 100%; background: linear-gradient(90deg, rgba(0,240,255,0.4), var(--cyan)); }
+
+  /* ---------- summary: year overview ---------- */
+  .yr-inner{ padding: 20px 14px 10px; }
+  .yr-head, .yr-row{
+    display:grid;
+    grid-template-columns: 34px minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr) minmax(0,1.6fr);
+    gap: 4px;
+    align-items:center;
+  }
+  .yr-head{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 1px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    padding: 0 4px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .yr-head div, .yr-row div{ text-align:right; overflow:hidden; white-space:nowrap; }
+  .yr-head div:first-child, .yr-row div:first-child{ text-align:left; }
+  .yr-row{
+    width:100%;
+    background:none; border:none;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 11px 4px;
+    font-family:'Share Tech Mono', monospace;
+    font-size: clamp(10.5px, 3.2vw, 12px);
+    color: var(--text);
+    cursor:pointer;
+  }
+  .yr-row .yr-mon{ color: var(--cyan); }
+  .yr-row.future{ color: var(--text-faint); }
+  .yr-row.future .yr-mon{ color: var(--text-faint); }
+  .yr-row.current .yr-mon{ color: var(--yellow); }
+  .yr-row.sel{ background: rgba(252,238,10,0.06); box-shadow: inset 2px 0 0 var(--yellow); }
+  .yr-row:active{ background: rgba(0,240,255,0.06); }
+  .yr-row.total{
+    cursor: default;
+    border-bottom: none;
+    border-top: 1px solid var(--line);
+    color: var(--yellow);
+  }
+  .yr-row.total .yr-mon{ color: var(--yellow); }
+  .yr-note{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    line-height: 1.5;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    padding: 6px 4px 8px;
+  }
+
+  .export-row{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  /* ---------- config ---------- */
+  .cfg-inner{ padding: 20px 16px 18px; }
+  .cfg-block + .cfg-block{ margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .cfg-label{
+    font-family:'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .cfg-label small{
+    display:block;
+    font-family:'Share Tech Mono', monospace;
+    font-weight: 400;
+    font-size: 9.5px;
+    letter-spacing: 1px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+  .stepper{
+    display:grid;
+    grid-template-columns: 52px 1fr 52px;
+    gap: 6px;
+  }
+  .step-btn{
+    height: 48px;
+    background: var(--void-2);
+    border: 1px solid var(--line);
+    color: var(--yellow);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 22px;
+    cursor:pointer;
+  }
+  .step-btn:active{ border-color: var(--yellow); background: rgba(252,238,10,0.08); }
+  .step-btn:disabled{ color: var(--text-faint); }
+  .step-value{
+    display:flex; align-items:center; justify-content:center;
+    background: var(--void-2);
+    border: 1px solid rgba(252,238,10,0.35);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 20px;
+    color: var(--yellow);
+  }
+  .cfg-note{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    line-height: 1.55;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 10px;
+  }
+  .cfg-note b{ color: var(--cyan); font-weight: 400; }
+
+  .mark-form{
+    display:grid;
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+    gap: 6px;
+  }
+  .mark-form .span-2{ grid-column: 1 / -1; }
+  .mark-form .mini-btn.wide{ margin-top: 2px; }
+  @media (max-width: 360px){
+    .mark-form{ grid-template-columns: minmax(0,1fr); }
+  }
+  .mk-list{ margin-top: 14px; }
+  .mk-row{
+    display:grid;
+    grid-template-columns: auto auto minmax(0,1fr) 34px;
+    gap: 8px;
+    align-items:center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.5px;
+  }
+  .mk-row.past{ opacity: 0.55; }
+  .mk-date{ color: var(--cyan); white-space: nowrap; }
+  .mk-type{ font-size: 8.5px; letter-spacing: 1px; padding: 2px 5px; border: 1px solid currentColor; text-transform: uppercase; white-space: nowrap; }
+  .mk-type.holiday{ color: var(--yellow); }
+  .mk-type.leave{ color: var(--cyan); }
+  .mk-type.half{ color: var(--text-dim); }
+  .mk-note{ color: var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'Rajdhani', sans-serif; font-weight: 600; font-size: 13px; }
+
+  .data-btns{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .footer-text{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 1.2px;
+    text-align: center;
+    margin-top: 6px;
+  }
+  .purge-btn{
+    display:block;
+    margin-top: 16px;
+    background:none;
+    border: 1px solid var(--line);
+    color: var(--text-faint);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 1.5px;
+    padding: 12px 16px;
+    cursor:pointer;
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  }
+  .purge-btn:active{ border-color: var(--magenta); color: var(--magenta); }
+
+  /* ---------- bottom sheet (add / edit session) ---------- */
+  .sheet-backdrop{
+    position: fixed; inset: 0;
+    z-index: 44;
+    background: rgba(0,0,0,0.65);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .sheet-backdrop.open{ opacity: 1; pointer-events: auto; }
+  .sheet{
+    position: fixed; left: 0; right: 0; bottom: 0;
+    z-index: 45;
+    padding: 0 var(--sar) 0 var(--sal);
+    transform: translateY(105%);
+    transition: transform .22s ease-out;
+    pointer-events: none;
+  }
+  .sheet.open{ transform: none; pointer-events: auto; }
+  .sheet-inner{
+    max-width: 520px;
+    margin: 0 auto;
+    max-height: 88dvh;
+    overflow-y: auto;
+    background: var(--panel);
+    border-top: 2px solid var(--yellow);
+    padding: 10px 18px calc(18px + var(--sab));
+    clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%, 0 16px);
+  }
+  .sheet-grip{ width: 44px; height: 3px; background: var(--line); margin: 2px auto 14px; }
+  .field{ margin-bottom: 12px; min-width: 0; }
+  .field label{
+    display:block;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 7px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .field-two{ display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+  .sheet-info{
+    font-family:'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--cyan);
+    text-transform: uppercase;
+    min-height: 16px;
+  }
+  .sheet-msg{
+    margin-top: 8px;
+    font-family:'Share Tech Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.8px;
+    line-height: 1.45;
+    text-transform: uppercase;
+    min-height: 15px;
+  }
+  .sheet-msg.err{ color: var(--magenta); }
+  .sheet-msg.warn{ color: var(--yellow); }
+  .sheet-actions{ display:flex; gap: 8px; margin-top: 14px; }
+  .sheet-actions .ghost-btn{ flex: 1 1 0; }
+  .sheet-actions .ghost-btn.danger{ flex: 0 0 auto; }
+  .sheet-actions .primary-btn{ flex: 1.4 1 0; }
+
+  .toast{
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--tabbar-h) + var(--sab) + 14px);
+    z-index: 47;
+    transform: translate(-50%, 16px);
+    max-width: calc(100% - 32px);
+    width: max-content;
+    background: var(--void-2);
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    font-family:'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    line-height: 1.4;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 10px 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.show{ opacity: 1; transform: translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce){
+    .scanlines, .status-dot.on, .status-dot.brk, .status-text::after, h1 .glitch-layer, .shift-btn::before, .tab .live-dot, .view.active{
+      animation: none !important;
+    }
+    .sheet, .sheet-backdrop, .toast{ transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+<div class="app">
+
+  <header>
+    <div>
+      <div class="eyebrow">NIGHT CITY LABOR DIVISION</div>
+      <h1 data-text="WORKLINE">
+        WORKLINE
+        <span class="glitch-layer cyan" aria-hidden="true">WORKLINE</span>
+        <span class="glitch-layer magenta" aria-hidden="true">WORKLINE</span>
+      </h1>
+      <div class="subtitle">// work hours tracker :: v2.077</div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot" id="statusDot"></div>
+      <div class="status-text" id="statusText">OFFLINE</div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ===== SHIFT ===== -->
+    <div class="view active" id="view-shift">
+      <section class="frame accent-yellow cut" id="hudFrame">
+        <div class="frame-inner cut hud-inner">
+          <div class="hud-warn" id="hudWarn" hidden>
+            <span id="hudWarnText">--</span>
+            <button class="mini-btn" id="hudWarnFix">FIX</button>
+          </div>
+          <div class="panel-label">SHIFT <span>CONTROL</span></div>
+          <div class="task-field">
+            <label for="taskInput">Task / project</label>
+            <input id="taskInput" type="text" placeholder="e.g. VR Math Lab — script authoring" maxlength="80" autocomplete="off" autocorrect="off">
+          </div>
+          <div class="chips" id="taskChips" hidden></div>
+          <div class="timer-readout" id="timerReadout">00:00:00</div>
+          <div class="timer-caption" id="timerCaption">shift not in progress</div>
+          <div class="hud-actions" id="hudActions">
+            <button class="sub-btn" id="subBtn" hidden>BREAK</button>
+            <button class="shift-btn" id="shiftBtn">INITIATE SHIFT</button>
+          </div>
+          <button class="edit-shift" id="editShiftBtn" hidden>✎ EDIT START / SET END TIME</button>
+        </div>
+      </section>
+
+      <section class="stats-row">
+        <div class="frame accent-cyan cut-sm">
+          <div class="frame-inner cut-sm stat-inner">
+            <div class="stat-label">Today</div>
+            <div class="stat-value" id="statToday">--</div>
+          </div>
+        </div>
+        <div class="frame accent-cyan cut-sm">
+          <div class="frame-inner cut-sm stat-inner">
+            <div class="stat-label">Week</div>
+            <div class="stat-value" id="statWeek">--</div>
+          </div>
+        </div>
+        <div class="frame accent-cyan cut-sm">
+          <div class="frame-inner cut-sm stat-inner">
+            <div class="stat-label">Month</div>
+            <div class="stat-value" id="statMonth">--</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="frame cut">
+        <div class="frame-inner cut tgt-inner">
+          <div class="panel-label">TARGET <span>TRACK</span></div>
+          <div class="tgt-block">
+            <div class="tgt-top">
+              <div class="tgt-name">Today</div>
+              <div class="tgt-value" id="tgtTodayValue">--</div>
+            </div>
+            <div class="bar"><div class="bar-fill" id="tgtTodayFill"></div></div>
+            <div class="tgt-cap" id="tgtTodayCap">--</div>
+          </div>
+          <div class="tgt-block">
+            <div class="tgt-top">
+              <div class="tgt-name">This week</div>
+              <div class="tgt-value" id="wkValue">--</div>
+            </div>
+            <div class="week-strip" id="weekStrip"></div>
+            <div class="tgt-cap" id="wkCap">--</div>
+          </div>
+          <button class="glance" id="glanceBtn">
+            <div class="tgt-top">
+              <div class="tgt-name" id="tgtMonthName">Month balance</div>
+              <div class="tgt-name glance-go">SUMMARY ›</div>
+            </div>
+            <div class="tgt-value" id="tgtMonthValue">--</div>
+            <div class="tgt-cap" id="tgtMonthCap">--</div>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== LOG ===== -->
+    <div class="view" id="view-log">
+      <section class="frame cut">
+        <div class="frame-inner cut log-inner">
+          <div class="log-top">
+            <div class="panel-label">SESSION <span>LOG</span></div>
+            <button class="mini-btn" id="logAdd">+ ADD ENTRY</button>
+          </div>
+          <div class="log-hint">Tap an entry to edit or delete it</div>
+          <div id="logBody">
+            <div class="empty-state">NO RECORDS FOUND — CLOCK IN TO BEGIN LOGGING</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== SUMMARY ===== -->
+    <div class="view" id="view-summary">
+      <section class="month-nav">
+        <button class="nav-btn" id="prevMonth" aria-label="Previous month">‹</button>
+        <div class="month-title">
+          <div class="month-name" id="monthName">--</div>
+          <button class="month-sub" id="monthSub">--</button>
+        </div>
+        <button class="nav-btn" id="nextMonth" aria-label="Next month">›</button>
+      </section>
+
+      <section class="frame accent-yellow cut">
+        <div class="frame-inner cut sum-inner">
+          <div class="panel-label" id="balLabel">BALANCE</div>
+          <div class="bal-row">
+            <div class="bal-value" id="balValue">--</div>
+            <div class="bal-tag" id="balTag">--</div>
+          </div>
+          <div class="bar"><div class="bar-fill" id="sumFill"></div><div class="bar-mark" id="sumMark"></div></div>
+          <div class="bar-cap"><span id="sumBarLeft">--</span><span id="sumBarRight">--</span></div>
+
+          <div class="kpi-grid">
+            <div class="kpi">
+              <div class="kpi-label">Working days</div>
+              <div class="kpi-value" id="kpiWorking">--</div>
+              <div class="kpi-cap" id="kpiWorkingCap">--</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Days worked</div>
+              <div class="kpi-value" id="kpiDays">--</div>
+              <div class="kpi-cap" id="kpiDaysCap">--</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Hours worked</div>
+              <div class="kpi-value" id="kpiHours">--</div>
+              <div class="kpi-cap" id="kpiHoursCap">--</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Expected hours</div>
+              <div class="kpi-value" id="kpiExpected">--</div>
+              <div class="kpi-cap" id="kpiExpectedCap">--</div>
+            </div>
+          </div>
+
+          <div class="sum-hint" id="sumHint">--</div>
+          <div class="rules-row">
+            <div id="rulesText">--</div>
+            <button class="rules-edit" id="rulesEdit">EDIT</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="frame cut">
+        <div class="frame-inner cut cal-inner">
+          <div class="panel-label">MONTH <span>GRID</span></div>
+          <div class="cal-head">
+            <div>MO</div><div>TU</div><div>WE</div><div>TH</div><div>FR</div><div>SA</div><div>SU</div>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+          <div class="cal-legend">
+            <span><i class="full"></i>Target met</span>
+            <span><i class="part"></i>Partial</span>
+            <span><i class="miss"></i>Missed</span>
+            <span><i class="off"></i>Off / holiday</span>
+            <span><i class="leave"></i>Leave</span>
+            <span><i class="mk"></i>Holiday / leave / ½ day</span>
+          </div>
+          <div class="day-detail" id="dayDetail">Tap a day for details</div>
+        </div>
+      </section>
+
+      <section class="frame cut">
+        <div class="frame-inner cut proj-inner">
+          <div class="panel-label">PROJECT <span>SPLIT</span></div>
+          <div id="projBody"></div>
+        </div>
+      </section>
+
+      <section class="frame cut">
+        <div class="frame-inner cut yr-inner">
+          <div class="panel-label">YEAR <span id="yrLabel">----</span></div>
+          <div class="yr-head">
+            <div>MON</div><div>W.DAYS</div><div>WORKED</div><div>HOURS</div><div>BALANCE</div>
+          </div>
+          <div id="yrBody"></div>
+          <div class="yr-note" id="yrNote">--</div>
+        </div>
+      </section>
+
+      <section class="export-row">
+        <button class="ghost-btn" id="exportMonth">EXPORT MONTH · CSV</button>
+        <button class="ghost-btn" id="exportYear">EXPORT YEAR · CSV</button>
+      </section>
+    </div>
+
+    <!-- ===== CONFIG ===== -->
+    <div class="view" id="view-config">
+      <section class="frame accent-yellow cut">
+        <div class="frame-inner cut cfg-inner">
+          <div class="panel-label">WORK <span>RULES</span></div>
+          <div class="cfg-block">
+            <div class="cfg-label">Daily target<small>expected hours on every working day</small></div>
+            <div class="stepper">
+              <button class="step-btn" id="dailyMinus" aria-label="Decrease daily target">−</button>
+              <div class="step-value" id="dailyValue">--</div>
+              <button class="step-btn" id="dailyPlus" aria-label="Increase daily target">+</button>
+            </div>
+          </div>
+          <div class="cfg-block">
+            <div class="cfg-label">Saturday off each month<small>every Sunday is always off</small></div>
+            <div class="seg" id="satSeg">
+              <button data-sat="1">1ST</button>
+              <button data-sat="2">2ND</button>
+              <button data-sat="3">3RD</button>
+              <button data-sat="4">4TH</button>
+              <button data-sat="5">LAST</button>
+            </div>
+            <div class="cfg-note" id="satNote">--</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="frame cut">
+        <div class="frame-inner cut cfg-inner">
+          <div class="panel-label">HOLIDAYS <span>&amp; LEAVE</span></div>
+          <div class="mark-form">
+            <input class="inp" type="date" id="mkDate" aria-label="Date">
+            <select class="inp" id="mkType" aria-label="Type">
+              <option value="holiday">Holiday</option>
+              <option value="leave">Leave</option>
+              <option value="half">Half day</option>
+            </select>
+            <input class="inp span-2" type="text" id="mkNote" maxlength="40" placeholder="Name (optional) — e.g. Diwali" autocomplete="off">
+            <button class="mini-btn wide span-2" id="mkAdd">+ ADD DAY</button>
+          </div>
+          <div class="cfg-note">Holidays and leave don't count toward expected hours. A half day expects half the daily target. You can also tap any day in the Summary calendar.</div>
+          <div class="mk-list" id="mkList"></div>
+        </div>
+      </section>
+
+      <section class="frame cut">
+        <div class="frame-inner cut cfg-inner">
+          <div class="panel-label">DATA <span>STORE</span></div>
+          <div class="cfg-note" id="footerStatus">SYNCING DATASTORE...</div>
+          <div class="data-btns">
+            <button class="ghost-btn" id="backupBtn">BACKUP</button>
+            <button class="ghost-btn" id="restoreBtn">RESTORE</button>
+          </div>
+          <input type="file" id="restoreInput" accept="application/json,.json" hidden>
+          <div class="cfg-note" id="backupNote">--</div>
+          <button class="purge-btn" id="purgeBtn">PURGE ALL LOGS</button>
+        </div>
+      </section>
+
+      <div class="footer-text">// work hours tracker :: v3.0</div>
+    </div>
+
+  </main>
+
+</div>
+
+<nav class="tabbar">
+  <div class="tabbar-inner">
+    <button class="tab active" data-tab="shift" id="tabShift">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 2.5h5M12 2.5V6M18.5 6.5l1.5-1.5"/></svg>
+      SHIFT
+      <span class="live-dot"></span>
+    </button>
+    <button class="tab" data-tab="log">
+      <svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.5M4 12h.5M4 18h.5"/></svg>
+      LOG
+    </button>
+    <button class="tab" data-tab="summary">
+      <svg viewBox="0 0 24 24"><path d="M4 20h16M6.5 20v-6M11 20V8M15.5 20v-9M20 20V4"/></svg>
+      SUMMARY
+    </button>
+    <button class="tab" data-tab="config">
+      <svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+      CONFIG
+    </button>
+  </div>
+</nav>
+
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-inner">
+    <div class="sheet-grip"></div>
+    <div class="panel-label" id="sheetTitle">EDIT <span>SESSION</span></div>
+    <div class="field">
+      <label for="fTask">Task / project</label>
+      <input class="inp" id="fTask" type="text" list="taskList" maxlength="80" placeholder="General work" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="fDate">Date</label>
+      <input class="inp" id="fDate" type="date">
+    </div>
+    <div class="field-two">
+      <div class="field">
+        <label for="fStart">Start</label>
+        <input class="inp" id="fStart" type="time">
+      </div>
+      <div class="field">
+        <label for="fEnd" id="fEndLabel">End</label>
+        <input class="inp" id="fEnd" type="time">
+      </div>
+    </div>
+    <div class="sheet-info" id="fInfo"></div>
+    <div class="sheet-msg" id="fMsg"></div>
+    <div class="sheet-actions">
+      <button class="ghost-btn danger" id="fDelete">DELETE</button>
+      <button class="ghost-btn" id="fCancel">CANCEL</button>
+      <button class="primary-btn" id="fSave">SAVE</button>
+    </div>
+  </div>
+</div>
+<datalist id="taskList"></datalist>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  const SESSIONS_KEY = 'workline-sessions';
+  const ACTIVE_KEY = 'workline-active';
+  const PAUSED_KEY = 'workline-paused';
+  const SETTINGS_KEY = 'workline-settings';
+  const DAYS_KEY = 'workline-days';
+
+  // offSat picks which Saturday of every month is a day off: 1-4 = 1st-4th, 5 = last.
+  // Sundays are always off.
+  const DEFAULT_SETTINGS = { dailyMins: 480, offSat: 2, lastBackup: null };
+  const DAILY_STEP = 30, DAILY_MIN = 30, DAILY_MAX = 960;
+  // a shift running longer than this is most likely a forgotten clock-out
+  const LONG_SHIFT_MS = 12 * 3600000;
+
+  const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const MONTHS_FULL = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+  const DOW = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const WEEK_LABELS = ['MO','TU','WE','TH','FR','SA','SU'];
+  const SAT_ORD = ['', '1ST', '2ND', '3RD', '4TH', 'LAST'];
+  const MARK_LABEL = { holiday: 'Holiday', leave: 'Leave', half: 'Half day' };
+
+  // ---------- storage adapter ----------
+  // Three tiers, picked automatically at runtime:
+  //  1. Native app (Capacitor)  -> @capacitor/preferences, backed by SharedPreferences
+  //     (Android) / UserDefaults (iOS). Survives the app being killed, swiped from
+  //     the recent-apps switcher, or the device rebooting. Only cleared if the user
+  //     force-clears app storage or uninstalls the app.
+  //  2. Claude artifact preview -> window.storage, provided by the chat host.
+  //  3. Plain browser / PWA     -> localStorage.
+  const isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const nativePrefs = isNativeApp && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences;
+
+  if (nativePrefs) {
+    window.storage = {
+      async get(key){
+        const res = await nativePrefs.get({ key });
+        return (res && res.value !== null && res.value !== undefined) ? { key, value: res.value, shared: false } : null;
+      },
+      async set(key, value){
+        await nativePrefs.set({ key, value });
+        return { key, value, shared: false };
+      },
+      async delete(key){
+        await nativePrefs.remove({ key });
+        return { key, deleted: true, shared: false };
+      },
+      async list(){ return { keys: [], shared: false }; }
+    };
+  } else if (typeof window.storage === 'undefined') {
+    window.storage = {
+      async get(key){
+        const v = localStorage.getItem(key);
+        return v === null ? null : { key, value: v, shared: false };
+      },
+      async set(key, value){
+        localStorage.setItem(key, value);
+        return { key, value, shared: false };
+      },
+      async delete(key){
+        localStorage.removeItem(key);
+        return { key, deleted: true, shared: false };
+      },
+      async list(prefix){
+        const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
+        return { keys, shared: false };
+      }
+    };
+  }
+
+  let sessions = [];
+  let active = null; // { task, start }
+  let paused = null; // { task, since } — on a break between two parts of a shift
+  let settings = Object.assign({}, DEFAULT_SETTINGS);
+  let dayMarks = {}; // 'YYYY-MM-DD' -> { type: 'holiday' | 'leave' | 'half', note }
+  let tickHandle = null;
+  let busy = false;
+
+  let currentTab = 'shift';
+  const nowDate = new Date();
+  let viewMonth = { y: nowDate.getFullYear(), m: nowDate.getMonth() }; // month shown in Summary
+  let selectedDay = null; // 'YYYY-MM-DD' tapped in the calendar
+  let lastSummaryMinute = -1;
+  let lastMode = null; // 'idle' | 'active' | 'paused' — from the previous renderStatus
+  let chipTasks = [];
+  let sheet = null; // open sheet: { mode: 'add' | 'edit' | 'active', id, orig, init }
+  let sheetOpen = false;
+  let toastTimer = null;
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    taskInput: $('taskInput'),
+    taskChips: $('taskChips'),
+    shiftBtn: $('shiftBtn'),
+    subBtn: $('subBtn'),
+    hudActions: $('hudActions'),
+    editShiftBtn: $('editShiftBtn'),
+    hudWarn: $('hudWarn'),
+    hudWarnText: $('hudWarnText'),
+    hudWarnFix: $('hudWarnFix'),
+    timerReadout: $('timerReadout'),
+    timerCaption: $('timerCaption'),
+    statusDot: $('statusDot'),
+    statusText: $('statusText'),
+    statToday: $('statToday'),
+    statWeek: $('statWeek'),
+    statMonth: $('statMonth'),
+    tgtTodayValue: $('tgtTodayValue'),
+    tgtTodayFill: $('tgtTodayFill'),
+    tgtTodayCap: $('tgtTodayCap'),
+    wkValue: $('wkValue'),
+    weekStrip: $('weekStrip'),
+    wkCap: $('wkCap'),
+    tgtMonthName: $('tgtMonthName'),
+    tgtMonthValue: $('tgtMonthValue'),
+    tgtMonthCap: $('tgtMonthCap'),
+    glanceBtn: $('glanceBtn'),
+    logAdd: $('logAdd'),
+    logBody: $('logBody'),
+    monthName: $('monthName'),
+    monthSub: $('monthSub'),
+    prevMonth: $('prevMonth'),
+    nextMonth: $('nextMonth'),
+    balLabel: $('balLabel'),
+    balValue: $('balValue'),
+    balTag: $('balTag'),
+    sumFill: $('sumFill'),
+    sumMark: $('sumMark'),
+    sumBarLeft: $('sumBarLeft'),
+    sumBarRight: $('sumBarRight'),
+    kpiWorking: $('kpiWorking'),
+    kpiWorkingCap: $('kpiWorkingCap'),
+    kpiDays: $('kpiDays'),
+    kpiDaysCap: $('kpiDaysCap'),
+    kpiHours: $('kpiHours'),
+    kpiHoursCap: $('kpiHoursCap'),
+    kpiExpected: $('kpiExpected'),
+    kpiExpectedCap: $('kpiExpectedCap'),
+    sumHint: $('sumHint'),
+    rulesText: $('rulesText'),
+    rulesEdit: $('rulesEdit'),
+    calGrid: $('calGrid'),
+    dayDetail: $('dayDetail'),
+    projBody: $('projBody'),
+    yrLabel: $('yrLabel'),
+    yrBody: $('yrBody'),
+    yrNote: $('yrNote'),
+    exportMonth: $('exportMonth'),
+    exportYear: $('exportYear'),
+    dailyMinus: $('dailyMinus'),
+    dailyPlus: $('dailyPlus'),
+    dailyValue: $('dailyValue'),
+    satSeg: $('satSeg'),
+    satNote: $('satNote'),
+    mkDate: $('mkDate'),
+    mkType: $('mkType'),
+    mkNote: $('mkNote'),
+    mkAdd: $('mkAdd'),
+    mkList: $('mkList'),
+    footerStatus: $('footerStatus'),
+    backupBtn: $('backupBtn'),
+    restoreBtn: $('restoreBtn'),
+    restoreInput: $('restoreInput'),
+    backupNote: $('backupNote'),
+    purgeBtn: $('purgeBtn'),
+    tabShift: $('tabShift'),
+    summaryView: $('view-summary'),
+    sheet: $('sheet'),
+    sheetBackdrop: $('sheetBackdrop'),
+    sheetTitle: $('sheetTitle'),
+    fTask: $('fTask'),
+    fDate: $('fDate'),
+    fStart: $('fStart'),
+    fEnd: $('fEnd'),
+    fEndLabel: $('fEndLabel'),
+    fInfo: $('fInfo'),
+    fMsg: $('fMsg'),
+    fDelete: $('fDelete'),
+    fCancel: $('fCancel'),
+    fSave: $('fSave'),
+    taskList: $('taskList'),
+    toast: $('toast'),
+  };
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  function formatHMS(ms){
+    const totalSec = Math.max(0, Math.floor(ms/1000));
+    const h = Math.floor(totalSec/3600);
+    const m = Math.floor((totalSec%3600)/60);
+    const s = totalSec%60;
+    return pad(h)+':'+pad(m)+':'+pad(s);
+  }
+
+  function formatHoursShort(ms){
+    if(!ms || ms <= 0) return '0h 00m';
+    const totalMin = Math.round(ms/60000);
+    const h = Math.floor(totalMin/60);
+    const m = totalMin%60;
+    return h+'h '+pad(m)+'m';
+  }
+
+  // surplus / deficit, e.g. "+3h 20m" or "−1h 05m"
+  function formatSigned(ms){
+    const mins = Math.round(ms/60000);
+    if(mins === 0) return '±0h 00m';
+    return (mins > 0 ? '+' : '−') + formatHoursShort(Math.abs(ms));
+  }
+
+  function balanceClass(ms){
+    const mins = Math.round(ms/60000);
+    return mins > 0 ? 'surplus' : mins < 0 ? 'deficit' : 'even';
+  }
+
+  function formatDecimalHours(ms){
+    return (ms/3600000).toFixed(1) + 'h';
+  }
+
+  function fmtNum(n){ return String(Math.round(n*10)/10); }
+
+  function formatDateBadge(ts){
+    const d = new Date(ts);
+    return pad(d.getDate())+' '+MONTHS[d.getMonth()];
+  }
+
+  function formatDateLong(ts){
+    return formatDateBadge(ts) + ' ' + new Date(ts).getFullYear();
+  }
+
+  function formatClock(ts){
+    const d = new Date(ts);
+    let h = d.getHours();
+    const m = pad(d.getMinutes());
+    const ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if(h === 0) h = 12;
+    return h+':'+m+ap;
+  }
+
+  function formatTimeRange(startTs, endTs){
+    return formatClock(startTs)+' – '+formatClock(endTs);
+  }
+
+  function isSameDay(a,b){
+    const da = new Date(a), db = new Date(b);
+    return da.getFullYear()===db.getFullYear() && da.getMonth()===db.getMonth() && da.getDate()===db.getDate();
+  }
+
+  function startOfWeek(ts){
+    const d = new Date(ts);
+    const day = (d.getDay()+6)%7; // Monday = 0
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate()-day);
+    return d.getTime();
+  }
+
+  function startBadge(ts){
+    return isSameDay(ts, Date.now()) ? formatClock(ts) : (formatDateBadge(ts) + ' ' + formatClock(ts));
+  }
+
+  function isSameMonth(a,b){
+    const da = new Date(a), db = new Date(b);
+    return da.getFullYear()===db.getFullYear() && da.getMonth()===db.getMonth();
+  }
+
+  function dayKey(ts){
+    const d = new Date(ts);
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  }
+
+  // 'YYYY-MM-DD' -> [year, monthIndex, day]
+  function parseDayKey(key){
+    const p = key.split('-').map(Number);
+    return [p[0], p[1]-1, p[2]];
+  }
+
+  function dayStart(ts){
+    const d = new Date(ts);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
+
+  function toTimeInput(ts){
+    const d = new Date(ts);
+    return pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+
+  function daysInMonth(y, m){ return new Date(y, m+1, 0).getDate(); }
+
+  function newId(ts){ return 's_' + ts + '_' + Math.random().toString(36).slice(2,8); }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+  function escapeAttr(str){ return escapeHtml(str).replace(/"/g, '&quot;'); }
+
+  // ---------- working-day rules ----------
+  // Weekly days off only: 'sun' or 'sat' when the date is one, otherwise null.
+  function offDayType(y, m, d){
+    const dow = new Date(y, m, d).getDay();
+    if(dow === 0) return 'sun';
+    if(dow === 6){
+      const isOffSat = settings.offSat === 5
+        ? d + 7 > daysInMonth(y, m)
+        : Math.ceil(d/7) === settings.offSat;
+      if(isOffSat) return 'sat';
+    }
+    return null;
+  }
+
+  // Full rule for one date, including holidays / leave / half days marked by the user.
+  // factor = share of the daily target expected that day (0, 0.5 or 1).
+  function dayRule(y, m, d){
+    const weekly = offDayType(y, m, d);
+    if(weekly) return { off: weekly, leave: false, mark: null, factor: 0 };
+    const mark = dayMarks[y+'-'+pad(m+1)+'-'+pad(d)] || null;
+    if(mark && mark.type === 'holiday') return { off: 'holiday', leave: false, mark, factor: 0 };
+    if(mark && mark.type === 'leave') return { off: null, leave: true, mark, factor: 0 };
+    if(mark && mark.type === 'half') return { off: null, leave: false, mark, factor: 0.5 };
+    return { off: null, leave: false, mark: null, factor: 1 };
+  }
+
+  function dayTypeLabel(r){
+    const note = r.mark && r.mark.note ? ' · ' + r.mark.note : '';
+    if(r.off === 'sun') return 'Sunday';
+    if(r.off === 'sat') return SAT_ORD[settings.offSat] + ' Saturday';
+    if(r.off === 'holiday') return 'Holiday' + note;
+    if(r.leave) return 'Leave' + note;
+    if(r.factor === 0.5) return 'Half day' + note;
+    return 'Working day';
+  }
+
+  function offSaturdayOf(y, m){
+    for(let d = 1; d <= daysInMonth(y, m); d++){
+      if(offDayType(y, m, d) === 'sat') return d;
+    }
+    return null;
+  }
+
+  function rulesSentence(){
+    return 'Every Sunday + ' + SAT_ORD[settings.offSat] + ' Saturday off; ' + formatHoursShort(settings.dailyMins * 60000) + ' per working day';
+  }
+
+  // Worked time per calendar day (keyed by the day the session started), incl. the live shift.
+  function dailyTotals(now){
+    const totals = new Map();
+    const add = (ts, ms) => { const k = dayKey(ts); totals.set(k, (totals.get(k) || 0) + ms); };
+    sessions.forEach(s => add(s.start, s.durationMs));
+    if(active) add(active.start, now - active.start);
+    return totals;
+  }
+
+  // Expected hours only start counting from the first day anything was logged,
+  // so the months before you started using the app don't show up as a deficit.
+  function trackingStart(now){
+    let first = active ? active.start : now;
+    sessions.forEach(s => { if(s.start < first) first = s.start; });
+    return dayStart(first);
+  }
+
+  // Everything the summary needs for one month. For the current month, "to date"
+  // counts working days up to and including today.
+  function monthSummary(y, m, totals, now){
+    const todayStart = dayStart(now);
+    const today = new Date(now);
+    const trackStart = trackingStart(now);
+    const curIdx = today.getFullYear()*12 + today.getMonth();
+    const idx = y*12 + m;
+    const state = idx < curIdx ? 'past' : idx > curIdx ? 'future' : 'current';
+    const dailyMs = settings.dailyMins * 60000;
+    const dim = daysInMonth(y, m);
+
+    const s = {
+      y, m, state, dim, dailyMs, trackStart, days: [],
+      working: 0, sun: 0, sat: 0, hol: 0, leave: 0, half: 0,
+      trackedDays: 0, elapsedWorking: 0, remainingDays: 0,
+      expectedFull: 0, expectedToDate: 0,
+      workedMs: 0, daysWorked: 0, offDaysWorked: 0, missed: 0,
+    };
+
+    for(let d = 1; d <= dim; d++){
+      const t = new Date(y, m, d).getTime();
+      const key = y+'-'+pad(m+1)+'-'+pad(d);
+      const r = dayRule(y, m, d);
+      const ms = totals.get(key) || 0;
+      const when = t < todayStart ? 'past' : t === todayStart ? 'today' : 'future';
+      const tracked = t >= trackStart;
+      const expMs = tracked ? r.factor * dailyMs : 0;
+
+      if(r.off === 'sun') s.sun++;
+      else if(r.off === 'sat') s.sat++;
+      else if(r.off === 'holiday') s.hol++;
+      else{
+        s.working++;
+        if(r.leave) s.leave++;
+        if(r.factor === 0.5) s.half++;
+        if(tracked){
+          s.trackedDays++;
+          s.expectedFull += expMs;
+          if(when === 'future'){
+            if(expMs > 0) s.remainingDays++;
+          }else{
+            s.expectedToDate += expMs;
+            if(!r.leave) s.elapsedWorking++;
+            if(when === 'past' && ms === 0 && !r.leave) s.missed++;
+          }
+        }
+      }
+      if(ms > 0){
+        s.workedMs += ms;
+        s.daysWorked++;
+        if(r.off) s.offDaysWorked++;
+      }
+      s.days.push({ d, key, rule: r, off: r.off, ms, when, tracked, expMs });
+    }
+
+    // tracking began partway through this month
+    s.partial = trackStart > new Date(y, m, 1).getTime() && trackStart <= new Date(y, m, dim).getTime();
+    s.untracked = state !== 'future' && s.trackedDays === 0 && s.workedMs === 0;
+    s.balance = (state === 'future' || s.untracked) ? null : s.workedMs - s.expectedToDate;
+    return s;
+  }
+
+  // Monday-to-Sunday view of the current week for the Shift tab.
+  function weekSummary(now, totals){
+    const ws = new Date(startOfWeek(now));
+    const todayStart = dayStart(now);
+    const trackStart = trackingStart(now);
+    const dailyMs = settings.dailyMins * 60000;
+    const w = { days: [], worked: 0, expected: 0, expectedToDate: 0 };
+    for(let i = 0; i < 7; i++){
+      const dt = new Date(ws.getFullYear(), ws.getMonth(), ws.getDate() + i);
+      const t = dt.getTime();
+      const r = dayRule(dt.getFullYear(), dt.getMonth(), dt.getDate());
+      const ms = totals.get(dayKey(t)) || 0;
+      const exp = t >= trackStart ? r.factor * dailyMs : 0;
+      w.worked += ms;
+      w.expected += exp;
+      if(t <= todayStart) w.expectedToDate += exp;
+      w.days.push({ label: WEEK_LABELS[i], ms, exp, rule: r, isToday: t === todayStart });
+    }
+    w.balance = w.worked - w.expectedToDate;
+    return w;
+  }
+
+  function recentTasks(n){
+    const seen = new Set(), out = [];
+    [...sessions].sort((a,b) => b.start - a.start).forEach(s => {
+      const t = (s.task || '').trim();
+      const k = t.toLowerCase();
+      if(t && !seen.has(k) && out.length < n){ seen.add(k); out.push(t); }
+    });
+    return out;
+  }
+
+  // ---------- storage ----------
+  function normalizeSettings(raw){
+    const out = Object.assign({}, DEFAULT_SETTINGS, raw || {});
+    out.dailyMins = Math.min(DAILY_MAX, Math.max(DAILY_MIN, Math.round(Number(out.dailyMins) || DEFAULT_SETTINGS.dailyMins)));
+    out.offSat = [1,2,3,4,5].includes(Number(out.offSat)) ? Number(out.offSat) : DEFAULT_SETTINGS.offSat;
+    out.lastBackup = typeof out.lastBackup === 'number' ? out.lastBackup : null;
+    return out;
+  }
+
+  function normalizeMarks(raw){
+    const out = {};
+    Object.keys(raw || {}).forEach(k => {
+      const v = raw[k];
+      if(/^\d{4}-\d{2}-\d{2}$/.test(k) && v && MARK_LABEL[v.type]){
+        out[k] = { type: v.type, note: String(v.note || '').slice(0, 40) };
+      }
+    });
+    return out;
+  }
+
+  function normalizeSession(s){
+    if(!s || typeof s.start !== 'number' || typeof s.end !== 'number' || !(s.end > s.start)) return null;
+    const out = {
+      id: typeof s.id === 'string' && s.id ? s.id : newId(s.end),
+      task: String(s.task || 'General work').slice(0, 80),
+      start: s.start,
+      end: s.end,
+      durationMs: s.end - s.start,
+    };
+    if(s.edited) out.edited = true;
+    if(s.manual) out.manual = true;
+    return out;
+  }
+
+  async function loadKey(key, fallback){
+    try{
+      const res = await window.storage.get(key, false);
+      return res && res.value ? JSON.parse(res.value) : fallback;
+    }catch(e){
+      return fallback;
+    }
+  }
+
+  async function loadState(){
+    const rawSessions = await loadKey(SESSIONS_KEY, []);
+    sessions = Array.isArray(rawSessions) ? rawSessions : [];
+    active = await loadKey(ACTIVE_KEY, null);
+    paused = await loadKey(PAUSED_KEY, null);
+    settings = normalizeSettings(await loadKey(SETTINGS_KEY, null));
+    dayMarks = normalizeMarks(await loadKey(DAYS_KEY, {}));
+  }
+
+  async function saveSessions(){
+    try{
+      await window.storage.set(SESSIONS_KEY, JSON.stringify(sessions), false);
+    }catch(e){
+      console.error('Failed to save sessions', e);
+    }
+  }
+
+  async function saveOptional(key, value){
+    try{
+      if(value){
+        await window.storage.set(key, JSON.stringify(value), false);
+      }else{
+        await window.storage.delete(key, false);
+      }
+    }catch(e){
+      // key may not have existed yet on delete; safe to ignore
+    }
+  }
+  function saveActive(){ return saveOptional(ACTIVE_KEY, active); }
+  function savePaused(){ return saveOptional(PAUSED_KEY, paused); }
+
+  async function saveSettings(){
+    try{
+      await window.storage.set(SETTINGS_KEY, JSON.stringify(settings), false);
+    }catch(e){
+      console.error('Failed to save settings', e);
+    }
+  }
+
+  async function saveDays(){
+    try{
+      await window.storage.set(DAYS_KEY, JSON.stringify(dayMarks), false);
+    }catch(e){
+      console.error('Failed to save holidays', e);
+    }
+  }
+
+  // ---------- render ----------
+  function renderStatus(){
+    const mode = active ? 'active' : paused ? 'paused' : 'idle';
+    const cls = mode === 'active' ? ' on' : mode === 'paused' ? ' brk' : '';
+    el.statusDot.className = 'status-dot' + cls;
+    el.statusText.className = 'status-text' + cls;
+    el.statusText.textContent = mode === 'active' ? 'ONLINE' : mode === 'paused' ? 'ON BREAK' : 'OFFLINE';
+
+    el.hudActions.classList.toggle('split', mode !== 'idle');
+    el.subBtn.hidden = mode === 'idle';
+    el.editShiftBtn.hidden = mode !== 'active';
+    el.shiftBtn.classList.toggle('active', mode === 'active');
+    el.timerReadout.classList.toggle('live', mode === 'active');
+    el.timerReadout.classList.toggle('brk', mode === 'paused');
+
+    if(mode === 'active'){
+      el.shiftBtn.textContent = 'TERMINATE';
+      el.subBtn.textContent = 'BREAK';
+      el.timerCaption.textContent = 'running since ' + startBadge(active.start) + ' — ' + (active.task || 'general work');
+      el.taskInput.value = active.task || '';
+      el.taskInput.disabled = true;
+    }else if(mode === 'paused'){
+      el.shiftBtn.textContent = 'RESUME';
+      el.subBtn.textContent = 'END';
+      el.timerReadout.textContent = formatHMS(Date.now() - paused.since);
+      el.timerCaption.textContent = 'on break since ' + startBadge(paused.since) + ' — break time is not counted';
+      if(lastMode !== 'paused') el.taskInput.value = paused.task || '';
+      el.taskInput.disabled = false;
+    }else{
+      el.shiftBtn.textContent = 'INITIATE SHIFT';
+      el.timerReadout.textContent = '00:00:00';
+      el.timerCaption.textContent = 'shift not in progress';
+      el.taskInput.disabled = false;
+    }
+    lastMode = mode;
+    el.tabShift.classList.toggle('live', mode === 'active');
+    el.tabShift.classList.toggle('brk', mode === 'paused');
+    renderLongShift();
+    renderChips();
+  }
+
+  function renderLongShift(){
+    const runMs = active ? Date.now() - active.start : 0;
+    el.hudWarn.hidden = runMs <= LONG_SHIFT_MS;
+    if(runMs > LONG_SHIFT_MS) el.hudWarnText.textContent = 'Running ' + formatHoursShort(runMs) + ' — forgot to clock out?';
+  }
+
+  function renderChips(){
+    chipTasks = active ? [] : recentTasks(6);
+    el.taskChips.hidden = chipTasks.length === 0;
+    el.taskChips.innerHTML = chipTasks.map((t, i) => `<button class="chip" data-chip="${i}">${escapeHtml(t)}</button>`).join('');
+    el.taskList.innerHTML = recentTasks(25).map(t => `<option value="${escapeAttr(t)}"></option>`).join('');
+  }
+
+  function renderStats(){
+    const now = Date.now();
+    const weekStart = startOfWeek(now);
+    let today = 0, week = 0, month = 0;
+
+    sessions.forEach(s=>{
+      if(isSameDay(s.start, now)) today += s.durationMs;
+      if(s.start >= weekStart) week += s.durationMs;
+      if(isSameMonth(s.start, now)) month += s.durationMs;
+    });
+
+    if(active){
+      const liveMs = now - active.start;
+      if(isSameDay(active.start, now)) today += liveMs;
+      if(active.start >= weekStart) week += liveMs;
+      if(isSameMonth(active.start, now)) month += liveMs;
+    }
+
+    el.statToday.textContent = formatHoursShort(today);
+    el.statWeek.textContent = formatHoursShort(week);
+    el.statMonth.textContent = formatHoursShort(month);
+  }
+
+  function renderTargets(){
+    const now = Date.now();
+    const d = new Date(now);
+    const totals = dailyTotals(now);
+    const todayMs = totals.get(dayKey(now)) || 0;
+    const r = dayRule(d.getFullYear(), d.getMonth(), d.getDate());
+    const dailyMs = settings.dailyMins * 60000;
+    const targetMs = r.factor * dailyMs;
+
+    // today
+    el.tgtTodayValue.textContent = formatHoursShort(todayMs) + ' / ' + (targetMs ? formatHoursShort(targetMs) : 'OFF');
+    const pct = targetMs ? Math.min(100, todayMs / targetMs * 100) : (todayMs > 0 ? 100 : 0);
+    el.tgtTodayFill.style.width = pct + '%';
+    el.tgtTodayFill.classList.toggle('over', targetMs > 0 && todayMs >= targetMs);
+    if(!targetMs){
+      el.tgtTodayCap.textContent = todayMs > 0
+        ? dayTypeLabel(r) + ' — every minute counts as surplus'
+        : dayTypeLabel(r) + ' — day off';
+    }else if(todayMs >= targetMs){
+      el.tgtTodayCap.textContent = 'Target met · ' + formatSigned(todayMs - targetMs);
+    }else{
+      el.tgtTodayCap.textContent = (r.factor === 0.5 ? 'Half day · ' : '') + formatHoursShort(targetMs - todayMs) + ' to go';
+    }
+
+    // week strip
+    const w = weekSummary(now, totals);
+    const scale = Math.max(dailyMs * 1.25, ...w.days.map(x => x.ms));
+    el.weekStrip.innerHTML = w.days.map(x => {
+      const c = ['wk-col'];
+      if(!x.rule.factor) c.push('off');
+      if(x.isToday) c.push('today');
+      if(x.exp > 0 && x.ms >= x.exp) c.push('met');
+      const line = x.exp > 0 ? `<div class="wk-line" style="bottom:${x.exp / scale * 100}%"></div>` : '';
+      return `<div class="${c.join(' ')}">
+        <div class="wk-track"><div class="wk-bar" style="height:${Math.min(100, x.ms / scale * 100)}%"></div>${line}</div>
+        <div class="wk-lbl">${x.label}</div>
+        <div class="wk-hrs">${x.ms > 0 ? (x.ms / 3600000).toFixed(1) : '·'}</div>
+      </div>`;
+    }).join('');
+    el.wkValue.textContent = formatHoursShort(w.worked) + ' / ' + formatHoursShort(w.expected);
+    el.wkCap.innerHTML = 'Week balance <span class="' + balanceClass(w.balance) + '">' + formatSigned(w.balance) + '</span> through today · dashed line = target';
+
+    // month
+    const s = monthSummary(d.getFullYear(), d.getMonth(), totals, now);
+    el.tgtMonthName.textContent = MONTHS_FULL[s.m] + ' balance';
+    el.tgtMonthValue.textContent = s.balance === null ? '--' : formatSigned(s.balance);
+    el.tgtMonthValue.className = 'tgt-value ' + (s.balance === null ? '' : balanceClass(s.balance));
+    el.tgtMonthCap.textContent = s.daysWorked + ' days worked · ' + s.working + ' working days';
+  }
+
+  function renderLog(){
+    if(sessions.length === 0){
+      el.logBody.innerHTML = '<div class="empty-state">NO RECORDS FOUND — CLOCK IN TO BEGIN LOGGING</div>';
+      return;
+    }
+    const sorted = [...sessions].sort((a,b)=> b.start - a.start);
+
+    // month -> day -> sessions, newest first
+    const months = [];
+    sorted.forEach(s=>{
+      const d = new Date(s.start);
+      const mKey = d.getFullYear()*12 + d.getMonth();
+      let mg = months[months.length-1];
+      if(!mg || mg.key !== mKey){
+        mg = { key: mKey, label: MONTHS_FULL[d.getMonth()] + ' ' + d.getFullYear(), total: 0, days: [] };
+        months.push(mg);
+      }
+      const dKey = dayKey(s.start);
+      let dg = mg.days[mg.days.length-1];
+      if(!dg || dg.key !== dKey){
+        dg = { key: dKey, ts: s.start, total: 0, items: [] };
+        mg.days.push(dg);
+      }
+      dg.items.push(s);
+      dg.total += s.durationMs;
+      mg.total += s.durationMs;
+    });
+
+    el.logBody.innerHTML = months.map(mg => `
+      <div class="log-month"><span>${mg.label}</span><span class="log-month-total">${formatHoursShort(mg.total)}</span></div>
+      ${mg.days.map(dg => {
+        const d = new Date(dg.ts);
+        const r = dayRule(d.getFullYear(), d.getMonth(), d.getDate());
+        const tag = r.off === 'holiday' ? '<span class="log-day-tag hol">HOLIDAY</span>'
+          : r.off ? '<span class="log-day-tag">OFF DAY</span>'
+          : r.leave ? '<span class="log-day-tag hol">LEAVE</span>'
+          : r.factor === 0.5 ? '<span class="log-day-tag">HALF DAY</span>' : '';
+        return `
+        <div class="log-day-head">
+          <span class="log-day-date">${DOW[d.getDay()]} ${formatDateBadge(dg.ts)}</span>
+          ${tag}
+          <span class="log-day-total">${formatHoursShort(dg.total)}</span>
+        </div>
+        ${dg.items.map(s => `
+          <button class="log-row" data-edit="${s.id}">
+            <div class="log-task">${escapeHtml(s.task || 'General work')}
+              <span class="range">${formatTimeRange(s.start, s.end)}${s.manual ? '<span class="log-badge">ADDED</span>' : s.edited ? '<span class="log-badge">EDITED</span>' : ''}</span>
+            </div>
+            <div class="log-dur">${formatHoursShort(s.durationMs)}</div>
+            <div class="log-go">›</div>
+          </button>
+        `).join('')}`;
+      }).join('')}
+    `).join('');
+  }
+
+  function renderSummary(){
+    const now = Date.now();
+    const totals = dailyTotals(now);
+    const s = monthSummary(viewMonth.y, viewMonth.m, totals, now);
+    lastSummaryMinute = Math.floor(now / 60000);
+
+    // month header
+    el.monthName.textContent = MONTHS_FULL[s.m] + ' ' + s.y;
+    if(s.state === 'current'){
+      el.monthSub.textContent = 'CURRENT MONTH';
+      el.monthSub.classList.remove('back');
+    }else{
+      el.monthSub.textContent = (s.state === 'past' ? 'CLOSED' : 'UPCOMING') + ' · ↺ THIS MONTH';
+      el.monthSub.classList.add('back');
+    }
+
+    // balance
+    const cls = s.balance === null ? '' : balanceClass(s.balance);
+    el.balLabel.innerHTML = 'BALANCE <span>// ' +
+      (s.untracked ? 'NOT TRACKED' : s.state === 'current' ? 'THROUGH TODAY' : s.state === 'past' ? 'FULL MONTH' : 'NOT STARTED') + '</span>';
+    el.balValue.textContent = s.balance === null ? '--' : formatSigned(s.balance);
+    el.balValue.className = 'bal-value ' + cls;
+    el.balTag.textContent = s.untracked ? 'NO DATA' : s.balance === null ? 'UPCOMING'
+      : cls === 'surplus' ? 'SURPLUS' : cls === 'deficit' ? 'DEFICIT' : 'ON TARGET';
+    el.balTag.className = 'bal-tag ' + cls;
+    const fromNote = s.partial ? ' · counted from ' + formatDateBadge(s.trackStart) : '';
+
+    // progress toward the full-month target, with a marker at "expected so far"
+    const pct = s.expectedFull > 0 ? s.workedMs / s.expectedFull * 100 : 0;
+    el.sumFill.style.width = Math.min(100, pct) + '%';
+    el.sumFill.classList.toggle('over', pct >= 100);
+    if(s.state === 'current' && s.expectedFull > 0){
+      el.sumMark.style.display = 'block';
+      el.sumMark.style.left = (s.expectedToDate / s.expectedFull * 100) + '%';
+    }else{
+      el.sumMark.style.display = 'none';
+    }
+    el.sumBarLeft.textContent = formatHoursShort(s.workedMs) + ' of ' + formatHoursShort(s.expectedFull);
+    el.sumBarRight.textContent = Math.round(pct) + '%';
+
+    // KPIs
+    el.kpiWorking.textContent = s.working;
+    el.kpiWorkingCap.textContent = s.dim + ' days − ' + s.sun + ' sun − ' + s.sat + ' sat' + (s.hol ? ' − ' + s.hol + ' hol' : '');
+
+    el.kpiDays.textContent = s.daysWorked;
+    const workedOnWorking = s.daysWorked - s.offDaysWorked;
+    let daysCap = s.state === 'future' ? 'Not started'
+      : s.untracked ? 'Before tracking began'
+      : workedOnWorking + ' of ' + s.elapsedWorking + (s.state === 'current' ? ' so far' : ' working days');
+    if(s.offDaysWorked) daysCap += ' · +' + s.offDaysWorked + ' on day off';
+    if(s.leave) daysCap += ' · ' + s.leave + ' leave';
+    el.kpiDaysCap.textContent = daysCap;
+
+    el.kpiHours.textContent = formatHoursShort(s.workedMs);
+    el.kpiHoursCap.textContent = s.daysWorked ? 'avg ' + formatHoursShort(s.workedMs / s.daysWorked) + ' / day worked' : 'No shifts logged';
+
+    el.kpiExpected.textContent = formatHoursShort(s.expectedFull);
+    el.kpiExpectedCap.textContent = s.untracked ? 'Tracking began ' + formatDateLong(s.trackStart)
+      : s.state === 'current'
+      ? formatHoursShort(s.expectedToDate) + ' due through today' + fromNote
+      : fmtNum(s.expectedFull / s.dailyMs) + ' days × ' + formatHoursShort(s.dailyMs) + fromNote;
+
+    // what it means / what's needed
+    let hint;
+    if(s.untracked){
+      hint = 'No records this month — expected hours count from your first logged day';
+    }else if(s.state === 'current'){
+      const need = s.expectedFull - s.workedMs;
+      if(need <= 0){
+        hint = 'Full-month target already met — ' + formatSigned(-need) + ' over ' + formatHoursShort(s.expectedFull);
+      }else if(s.remainingDays > 0){
+        hint = 'Need ' + formatHoursShort(need / s.remainingDays) + ' / day over the ' + s.remainingDays +
+          ' working day' + (s.remainingDays === 1 ? '' : 's') + ' after today to hit ' + formatHoursShort(s.expectedFull);
+      }else{
+        hint = 'No working days left after today — ' + formatHoursShort(need) + ' left to hit ' + formatHoursShort(s.expectedFull);
+      }
+      if(s.missed) hint += ' · ' + s.missed + ' missed day' + (s.missed === 1 ? '' : 's');
+    }else if(s.state === 'past'){
+      hint = s.missed
+        ? s.missed + ' working day' + (s.missed === 1 ? '' : 's') + ' with no shift logged — mark them as leave if they were approved'
+        : 'Every working day had a shift logged';
+    }else{
+      hint = s.working + ' working days ahead · ' + formatHoursShort(s.expectedFull) + ' expected';
+    }
+    el.sumHint.textContent = hint;
+
+    const satDay = offSaturdayOf(s.y, s.m);
+    el.rulesText.textContent = 'Off: every Sunday + ' + SAT_ORD[settings.offSat] + ' Saturday' +
+      (satDay ? ' (' + pad(satDay) + ' ' + MONTHS[s.m] + ')' : '') + ' · ' + formatHoursShort(s.dailyMs) + ' / day';
+
+    renderCalendar(s);
+    renderDayDetail(s, now);
+    renderProjects(s.y, s.m, now);
+    renderYear(totals, now);
+  }
+
+  function renderCalendar(s){
+    const lead = (new Date(s.y, s.m, 1).getDay() + 6) % 7; // Monday-first grid
+    let html = '';
+    for(let i = 0; i < lead; i++) html += '<div class="cal-blank"></div>';
+    s.days.forEach(day => {
+      const r = day.rule;
+      const c = ['cal-day'];
+      let sub = '';
+      if(r.off){ c.push('off'); sub = 'OFF'; }
+      if(r.off === 'holiday'){ c.push('hol'); sub = 'HOL'; }
+      if(r.leave){ c.push('leave'); sub = 'LEAVE'; }
+      if(r.factor === 0.5){ c.push('half'); sub = '½ DAY'; }
+      if(r.mark) c.push('marked');
+      if(day.ms > 0){
+        c.push(day.ms >= (day.expMs || s.dailyMs) ? 'full' : 'part');
+        sub = formatDecimalHours(day.ms);
+      }else if(!day.tracked){
+        c.push('untracked');
+      }else if(day.expMs > 0 && day.when === 'past'){
+        c.push('miss'); sub = '—';
+      }
+      if(day.when === 'future') c.push('future');
+      if(day.when === 'today') c.push('today');
+      if(day.key === selectedDay) c.push('sel');
+      html += `<button class="${c.join(' ')}" data-day="${day.key}"><span class="cal-num">${day.d}</span><span class="cal-hrs">${sub}</span></button>`;
+    });
+    el.calGrid.innerHTML = html;
+  }
+
+  function renderDayDetail(s, now){
+    const day = selectedDay && s.days.find(x => x.key === selectedDay);
+    if(!day){
+      el.dayDetail.textContent = 'Tap a day for details, to mark it as holiday / leave, or to add a forgotten shift';
+      return;
+    }
+    const r = day.rule;
+    const date = new Date(s.y, s.m, day.d);
+    const type = r.off === 'sun' || r.off === 'sat' ? dayTypeLabel(r) + ' · day off'
+      : r.off || r.leave ? dayTypeLabel(r)
+      : !day.tracked ? 'Working day · before tracking began'
+      : r.factor === 0.5 ? dayTypeLabel(r) + ' · ' + formatHoursShort(day.expMs) + ' target'
+      : day.when === 'future' ? 'Upcoming working day'
+      : 'Working day';
+
+    let val = formatHoursShort(day.ms);
+    if(day.expMs > 0){
+      if(day.when !== 'future') val += ' · ' + formatSigned(day.ms - day.expMs);
+    }else if(day.ms > 0 && day.tracked){
+      val += ' · ' + formatSigned(day.ms);
+    }
+
+    const items = sessions
+      .filter(x => dayKey(x.start) === day.key)
+      .sort((a,b) => a.start - b.start)
+      .map(x => `<button class="dd-row" data-edit="${x.id}">
+          <span class="dd-task">${escapeHtml(x.task || 'General work')}<small>${formatTimeRange(x.start, x.end)}</small></span>
+          <span class="dd-dur">${formatHoursShort(x.durationMs)} ›</span>
+        </button>`);
+    if(active && dayKey(active.start) === day.key){
+      items.push(`<button class="dd-row" data-edit-active="1">
+          <span class="dd-task">${escapeHtml(active.task || 'General work')}<small>${formatClock(active.start)} – now</small></span>
+          <span class="dd-dur">${formatHoursShort(now - active.start)} ›</span>
+        </button>`);
+    }
+
+    const canMark = !(r.off === 'sun' || r.off === 'sat');
+    const curType = r.mark ? r.mark.type : 'work';
+    const markSeg = canMark ? `
+      <div class="dd-label">MARK THIS DAY</div>
+      <div class="seg seg-4">
+        ${[['work','WORK'],['holiday','HOLIDAY'],['leave','LEAVE'],['half','HALF']].map(([t, label]) =>
+          `<button data-mark="${t}" class="${t === curType ? 'on' : ''}">${label}</button>`).join('')}
+      </div>` : '';
+    const addBtn = day.when === 'future' ? '' : `<button class="mini-btn wide" data-add-day="${day.key}">+ ADD A SESSION ON THIS DAY</button>`;
+
+    el.dayDetail.innerHTML = `
+      <div class="dd-top">
+        <span class="dd-date">${DOW[date.getDay()]} ${pad(day.d)} ${MONTHS[s.m]}</span>
+        <span class="dd-val">${val}</span>
+      </div>
+      <div class="dd-type">${escapeHtml(type)}${items.length ? ' · ' + items.length + ' session' + (items.length === 1 ? '' : 's') : ''}</div>
+      ${items.join('')}
+      ${markSeg}
+      ${addBtn}
+    `;
+  }
+
+  function renderProjects(y, m, now){
+    const map = new Map();
+    const add = (task, ms) => {
+      const name = (task || 'General work').trim() || 'General work';
+      const k = name.toLowerCase();
+      const cur = map.get(k) || { name, ms: 0 };
+      cur.ms += ms;
+      map.set(k, cur);
+    };
+    sessions.forEach(s => { const d = new Date(s.start); if(d.getFullYear() === y && d.getMonth() === m) add(s.task, s.durationMs); });
+    if(active){ const d = new Date(active.start); if(d.getFullYear() === y && d.getMonth() === m) add(active.task, now - active.start); }
+
+    const list = [...map.values()].sort((a,b) => b.ms - a.ms);
+    const total = list.reduce((t, x) => t + x.ms, 0);
+    if(!total){
+      el.projBody.innerHTML = '<div class="empty-state">NO TIME LOGGED THIS MONTH</div>';
+      return;
+    }
+    const top = list.slice(0, 6);
+    if(list.length > 6){
+      top.push({ name: 'Other (' + (list.length - 6) + ' tasks)', ms: list.slice(6).reduce((t, x) => t + x.ms, 0), other: true });
+    }
+    el.projBody.innerHTML = top.map(x => `
+      <div class="proj-row${x.other ? ' other' : ''}">
+        <div class="proj-top">
+          <span class="proj-name">${escapeHtml(x.name)}</span>
+          <span class="proj-val">${formatHoursShort(x.ms)}<small>${Math.round(x.ms / total * 100)}%</small></span>
+        </div>
+        <div class="proj-bar"><div style="width:${x.ms / total * 100}%"></div></div>
+      </div>`).join('');
+  }
+
+  function renderYear(totals, now){
+    const y = viewMonth.y;
+    el.yrLabel.textContent = y;
+    let tWorking = 0, tDays = 0, tMs = 0, tBal = 0, tExpected = 0, hasBal = false;
+    let html = '';
+    for(let m = 0; m < 12; m++){
+      const s = monthSummary(y, m, totals, now);
+      tWorking += s.working;
+      tDays += s.daysWorked;
+      tMs += s.workedMs;
+      tExpected += s.expectedFull;
+      if(s.balance !== null){ tBal += s.balance; hasBal = true; }
+      const c = ['yr-row', s.state];
+      if(s.untracked) c.push('future');
+      if(m === viewMonth.m) c.push('sel');
+      const blank = (s.state === 'future' || s.untracked) && !s.workedMs;
+      html += `
+        <button class="${c.join(' ')}" data-month="${m}">
+          <div class="yr-mon">${MONTHS[m]}</div>
+          <div>${s.working}</div>
+          <div>${blank ? '—' : s.daysWorked}</div>
+          <div>${blank ? '—' : formatHoursShort(s.workedMs)}</div>
+          <div class="${s.balance === null ? '' : balanceClass(s.balance)}">${s.balance === null ? '—' : formatSigned(s.balance)}</div>
+        </button>`;
+    }
+    html += `
+      <div class="yr-row total">
+        <div class="yr-mon">ALL</div>
+        <div>${tWorking}</div>
+        <div>${tDays}</div>
+        <div>${formatHoursShort(tMs)}</div>
+        <div class="${hasBal ? balanceClass(tBal) : ''}">${hasBal ? formatSigned(tBal) : '—'}</div>
+      </div>`;
+    el.yrBody.innerHTML = html;
+    el.yrNote.textContent = 'W.days = working days · ' + formatHoursShort(tExpected) + ' expected in ' + y +
+      ' · balance runs from your first log (' + formatDateLong(trackingStart(now)) + ') to today · tap a month to open it';
+  }
+
+  function renderConfig(){
+    el.dailyValue.textContent = formatHoursShort(settings.dailyMins * 60000);
+    el.dailyMinus.disabled = settings.dailyMins <= DAILY_MIN;
+    el.dailyPlus.disabled = settings.dailyMins >= DAILY_MAX;
+    el.satSeg.querySelectorAll('[data-sat]').forEach(b => {
+      b.classList.toggle('on', Number(b.getAttribute('data-sat')) === settings.offSat);
+    });
+    const d = new Date();
+    const y = d.getFullYear(), m = d.getMonth();
+    const ny = m === 11 ? y + 1 : y, nm = (m + 1) % 12;
+    const a = offSaturdayOf(y, m), b = offSaturdayOf(ny, nm);
+    el.satNote.innerHTML = 'This month: <b>SAT ' + pad(a) + ' ' + MONTHS[m] + '</b> · Next: <b>SAT ' + pad(b) + ' ' + MONTHS[nm] + '</b>';
+
+    if(!el.mkDate.value) el.mkDate.value = dayKey(Date.now());
+    const todayKey = dayKey(Date.now());
+    const keys = Object.keys(dayMarks).sort();
+    el.mkList.innerHTML = keys.length ? keys.map(k => {
+      const [yy, mm, dd] = parseDayKey(k);
+      const mk = dayMarks[k];
+      return `<div class="mk-row${k < todayKey ? ' past' : ''}">
+        <span class="mk-date">${DOW[new Date(yy, mm, dd).getDay()]} ${pad(dd)} ${MONTHS[mm]} ${yy}</span>
+        <span class="mk-type ${mk.type}">${MARK_LABEL[mk.type]}</span>
+        <span class="mk-note">${escapeHtml(mk.note || '')}</span>
+        <button class="log-del" data-unmark="${k}" aria-label="Remove">✕</button>
+      </div>`;
+    }).join('') : '<div class="empty-state">NO HOLIDAYS OR LEAVE MARKED YET</div>';
+
+    el.footerStatus.innerHTML = sessions.length + ' record' + (sessions.length===1?'':'s') + ' logged locally on this device' +
+      (sessions.length || active
+        ? '<br>Expected hours count from <b>' + formatDateLong(trackingStart(Date.now())) + '</b> (first log)'
+        : '<br>Expected hours start counting from your first logged day');
+    const ago = settings.lastBackup ? Math.floor((Date.now() - settings.lastBackup) / 86400000) : null;
+    el.backupNote.innerHTML = settings.lastBackup
+      ? 'Last backup: <b>' + formatDateLong(settings.lastBackup) + '</b>' + (ago >= 14 ? ' — ' + ago + ' days ago, time for a new one' : '')
+      : 'No backup yet — data lives only on this phone. Save a backup now and then.';
+  }
+
+  function renderAll(){
+    renderStatus();
+    renderStats();
+    renderTargets();
+    renderLog();
+    renderSummary();
+    renderConfig();
+  }
+
+  function toast(msg){
+    el.toast.textContent = msg;
+    el.toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.toast.classList.remove('show'), 2600);
+  }
+
+  // ---------- tabs ----------
+  function showTab(name){
+    currentTab = name;
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.getAttribute('data-tab') === name));
+    if(name === 'summary') renderSummary();
+    window.scrollTo(0, 0);
+  }
+
+  function shiftMonth(delta){
+    const idx = viewMonth.y*12 + viewMonth.m + delta;
+    viewMonth = { y: Math.floor(idx/12), m: idx % 12 };
+    selectedDay = null;
+    renderSummary();
+  }
+
+  function goToCurrentMonth(){
+    const d = new Date();
+    viewMonth = { y: d.getFullYear(), m: d.getMonth() };
+    selectedDay = null;
+    renderSummary();
+  }
+
+  // ---------- timer ----------
+  function tick(){
+    const now = Date.now();
+    if(active){
+      el.timerReadout.textContent = formatHMS(now - active.start);
+      renderStats();
+      renderTargets();
+      renderLongShift();
+      // summary figures are minute-resolution; rebuilding its buttons every second would eat taps
+      if(currentTab === 'summary' && Math.floor(now / 60000) !== lastSummaryMinute) renderSummary();
+    }else if(paused){
+      el.timerReadout.textContent = formatHMS(now - paused.since);
+    }
+  }
+
+  function startTicking(){
+    stopTicking();
+    tick();
+    tickHandle = setInterval(tick, 1000);
+  }
+  function stopTicking(){
+    if(tickHandle){ clearInterval(tickHandle); tickHandle = null; }
+  }
+
+  // ---------- actions ----------
+  async function clockIn(){
+    if(busy || active) return;
+    busy = true;
+    try{
+      const task = el.taskInput.value.trim();
+      active = { task: task || 'General work', start: Date.now() };
+      paused = null;
+      await saveActive();
+      await savePaused();
+      renderAll();
+      startTicking();
+    } finally { busy = false; }
+  }
+
+  function closeActiveSegment(end){
+    sessions.push({
+      id: newId(end),
+      task: active.task,
+      start: active.start,
+      end: end,
+      durationMs: end - active.start
+    });
+  }
+
+  async function clockOut(){
+    if(busy || !active) return;
+    busy = true;
+    try{
+      closeActiveSegment(Date.now());
+      await saveSessions();
+      active = null;
+      await saveActive();
+      stopTicking();
+      renderAll();
+    } finally { busy = false; }
+  }
+
+  // A break logs the work so far and starts a break clock; RESUME opens a new segment.
+  async function startBreak(){
+    if(busy || !active) return;
+    busy = true;
+    try{
+      const now = Date.now();
+      const task = active.task;
+      closeActiveSegment(now);
+      await saveSessions();
+      paused = { task, since: now };
+      await savePaused();
+      active = null;
+      await saveActive();
+      renderAll();
+      startTicking();
+    } finally { busy = false; }
+  }
+
+  async function resumeShift(){
+    if(busy || !paused) return;
+    busy = true;
+    try{
+      const task = el.taskInput.value.trim() || paused.task;
+      active = { task, start: Date.now() };
+      await saveActive();
+      paused = null;
+      await savePaused();
+      renderAll();
+      startTicking();
+    } finally { busy = false; }
+  }
+
+  async function endFromBreak(){
+    if(busy || !paused) return;
+    busy = true;
+    try{
+      paused = null;
+      await savePaused();
+      stopTicking();
+      renderAll();
+    } finally { busy = false; }
+  }
+
+  async function purgeAll(){
+    if(busy) return;
+    busy = true;
+    try{
+      const ok = confirm('This will permanently erase every logged shift. Your rules, holidays and leave are kept. Continue?');
+      if(!ok) return;
+      sessions = [];
+      active = null;
+      paused = null;
+      stopTicking();
+      await saveSessions();
+      await saveActive();
+      await savePaused();
+      renderAll();
+    } finally { busy = false; }
+  }
+
+  async function updateSettings(patch){
+    if(busy) return;
+    busy = true;
+    try{
+      settings = normalizeSettings(Object.assign({}, settings, patch));
+      await saveSettings();
+      renderAll();
+    } finally { busy = false; }
+  }
+
+  async function setMark(key, type, note){
+    if(busy) return;
+    busy = true;
+    try{
+      if(!MARK_LABEL[type]){
+        delete dayMarks[key];
+      }else{
+        const prevNote = dayMarks[key] ? dayMarks[key].note : '';
+        dayMarks[key] = { type, note: String(note !== undefined ? note : prevNote || '').slice(0, 40) };
+      }
+      await saveDays();
+      renderAll();
+    } finally { busy = false; }
+    const [, m, d] = parseDayKey(key);
+    toast(pad(d) + ' ' + MONTHS[m] + (MARK_LABEL[type] ? ' marked as ' + MARK_LABEL[type].toLowerCase() : ' set back to a working day'));
+  }
+
+  async function addMarkFromForm(){
+    const key = el.mkDate.value;
+    if(!key){ toast('Pick a date first'); return; }
+    const [y, m, d] = parseDayKey(key);
+    const weekly = offDayType(y, m, d);
+    if(weekly){
+      toast((weekly === 'sun' ? 'Sunday' : SAT_ORD[settings.offSat] + ' Saturday') + ' is already a day off');
+      return;
+    }
+    await setMark(key, el.mkType.value, el.mkNote.value.trim());
+    el.mkNote.value = '';
+  }
+
+  // ---------- add / edit sheet ----------
+  function openSheet(mode, opts){
+    opts = opts || {};
+    const now = Date.now();
+    let task = '', start, end;
+    if(mode === 'edit'){
+      const s = sessions.find(x => x.id === opts.id);
+      if(!s) return;
+      task = s.task; start = s.start; end = s.end;
+    }else if(mode === 'active'){
+      if(!active) return;
+      task = active.task; start = active.start; end = null;
+    }else{
+      const [y, m, d] = parseDayKey(opts.date || dayKey(now));
+      const dailyMs = settings.dailyMins * 60000;
+      if(dayKey(now) === dayKey(new Date(y, m, d).getTime())){
+        end = Math.floor(now / 60000) * 60000;
+        start = Math.max(dayStart(now), end - 3600000);
+      }else{
+        start = new Date(y, m, d, 9, 0).getTime();
+        end = start + dailyMs;
+      }
+    }
+    sheet = {
+      mode,
+      id: opts.id || null,
+      orig: { start, end },
+      init: { date: dayKey(start), start: toTimeInput(start), end: end ? toTimeInput(end) : '' },
+    };
+    el.fTask.value = task || '';
+    el.fDate.value = sheet.init.date;
+    el.fDate.max = dayKey(now);
+    el.fStart.value = sheet.init.start;
+    el.fEnd.value = sheet.init.end;
+    el.sheetTitle.innerHTML = mode === 'edit' ? 'EDIT <span>SESSION</span>' : mode === 'active' ? 'RUNNING <span>SHIFT</span>' : 'ADD <span>SESSION</span>';
+    el.fEndLabel.textContent = mode === 'active' ? 'End · empty = running' : 'End';
+    el.fDelete.hidden = mode !== 'edit';
+    updateSheetInfo();
+    el.sheet.classList.add('open');
+    el.sheetBackdrop.classList.add('open');
+    document.body.classList.add('sheet-open');
+    if(!sheetOpen){
+      sheetOpen = true;
+      // lets the Android back button close the sheet instead of leaving the app
+      try{ history.pushState({ wlSheet: true }, ''); }catch(e){}
+    }
+  }
+
+  function hideSheet(){
+    el.sheet.classList.remove('open');
+    el.sheetBackdrop.classList.remove('open');
+    document.body.classList.remove('sheet-open');
+    sheet = null;
+  }
+
+  function closeSheet(){
+    if(!sheetOpen) return;
+    sheetOpen = false;
+    hideSheet();
+    if(history.state && history.state.wlSheet){ try{ history.back(); }catch(e){} }
+  }
+
+  // Turns the form into timestamps. Unchanged fields keep their original
+  // second-level precision so opening and saving an entry doesn't shift it.
+  function readSheet(){
+    const task = el.fTask.value.trim() || 'General work';
+    const dv = el.fDate.value, sv = el.fStart.value, ev = el.fEnd.value;
+    if(!dv || !sv) return { error: 'Pick a date and a start time' };
+    const [y, m, d] = parseDayKey(dv);
+    const [sh, sm] = sv.split(':').map(Number);
+    const sameStart = dv === sheet.init.date && sv === sheet.init.start;
+    const start = sameStart ? sheet.orig.start : new Date(y, m, d, sh, sm).getTime();
+
+    let end = null;
+    if(ev){
+      if(sameStart && ev === sheet.init.end && sheet.orig.end){
+        end = sheet.orig.end;
+      }else{
+        const [eh, em] = ev.split(':').map(Number);
+        end = new Date(y, m, d, eh, em).getTime();
+        if(end <= start) end = new Date(y, m, d + 1, eh, em).getTime(); // past midnight
+      }
+    }else if(sheet.mode !== 'active'){
+      return { error: 'Pick an end time' };
+    }
+
+    const now = Date.now();
+    if(start > now) return { error: 'Start time is in the future' };
+    if(end !== null){
+      if(end > now + 60000) return { error: 'End time is in the future' };
+      if(end - start > 24 * 3600000) return { error: 'A session can be 24 hours at most' };
+    }
+
+    const until = end === null ? now : end;
+    let warn = '';
+    const clash = sessions.find(x => x.id !== sheet.id && x.start < until && x.end > start);
+    if(clash){
+      warn = 'Overlaps "' + clash.task + '" ' + formatTimeRange(clash.start, clash.end) + ' on ' + formatDateBadge(clash.start) + ' — that time would count twice';
+    }else if(sheet.mode !== 'active' && active && active.start < until){
+      warn = 'Overlaps the running shift — that time would count twice';
+    }
+    return { task, start, end, warn, nextDay: end !== null && dayKey(end) !== dayKey(start) };
+  }
+
+  function showSheetMsg(text, kind){
+    el.fMsg.textContent = text;
+    el.fMsg.className = 'sheet-msg' + (text ? ' ' + kind : '');
+  }
+
+  function updateSheetInfo(){
+    if(!sheet) return;
+    const r = readSheet();
+    if(r.error){
+      el.fInfo.textContent = '';
+      showSheetMsg(r.error, 'err');
+      return;
+    }
+    el.fInfo.textContent = r.end === null
+      ? 'Still running · ' + formatHoursShort(Date.now() - r.start) + ' so far'
+      : 'Duration ' + formatHoursShort(r.end - r.start) + (r.nextDay ? ' · ends next day' : '');
+    showSheetMsg(r.warn || '', 'warn');
+  }
+
+  async function saveSheet(){
+    if(!sheet || busy) return;
+    const r = readSheet();
+    if(r.error){ showSheetMsg(r.error, 'err'); return; }
+    const mode = sheet.mode, id = sheet.id;
+    busy = true;
+    let msg = '';
+    try{
+      if(mode === 'active'){
+        if(active){
+          if(r.end === null){
+            active = { task: r.task, start: r.start };
+            await saveActive();
+            msg = 'Running shift updated';
+          }else{
+            sessions.push({ id: newId(r.end), task: r.task, start: r.start, end: r.end, durationMs: r.end - r.start, edited: true });
+            await saveSessions();
+            active = null;
+            await saveActive();
+            stopTicking();
+            msg = 'Shift logged · ' + formatHoursShort(r.end - r.start);
+          }
+        }
+      }else if(mode === 'edit'){
+        const s = sessions.find(x => x.id === id);
+        if(s){
+          if(s.start !== r.start || s.end !== r.end) s.edited = true;
+          s.task = r.task; s.start = r.start; s.end = r.end; s.durationMs = r.end - r.start;
+          await saveSessions();
+          msg = 'Session updated';
+        }
+      }else{
+        sessions.push({ id: newId(r.end), task: r.task, start: r.start, end: r.end, durationMs: r.end - r.start, manual: true });
+        await saveSessions();
+        msg = 'Session added · ' + formatHoursShort(r.end - r.start);
+      }
+      closeSheet();
+      renderAll();
+      if(active) startTicking();
+    } finally { busy = false; }
+    if(msg) toast(msg);
+  }
+
+  async function deleteFromSheet(){
+    if(!sheet || sheet.mode !== 'edit' || busy) return;
+    const s = sessions.find(x => x.id === sheet.id);
+    if(!s) return;
+    busy = true;
+    try{
+      const ok = confirm('Delete "' + (s.task || 'General work') + '" (' + formatHoursShort(s.durationMs) + ') from ' + formatDateBadge(s.start) + '?');
+      if(!ok) return;
+      sessions = sessions.filter(x => x.id !== s.id);
+      await saveSessions();
+      closeSheet();
+      renderAll();
+    } finally { busy = false; }
+    toast('Session deleted');
+  }
+
+  // ---------- export / backup ----------
+  function csvCell(v){
+    const s = String(v === null || v === undefined ? '' : v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function csvRow(arr){ return arr.map(csvCell).join(','); }
+  function hoursNum(ms){ return (ms / 3600000).toFixed(2); }
+
+  function csvDayType(day){
+    const r = day.rule;
+    if(r.off === 'sun') return 'Sunday (off)';
+    if(r.off === 'sat') return SAT_ORD[settings.offSat].toLowerCase() + ' Saturday (off)';
+    if(r.off || r.leave || r.factor === 0.5) return dayTypeLabel(r).replace(' · ', ' - ');
+    if(!day.tracked) return 'Not tracked';
+    if(day.when === 'future') return 'Upcoming';
+    if(day.ms > 0) return 'Worked';
+    return day.when === 'past' ? 'Missed' : 'Working day';
+  }
+
+  function monthCsv(y, m){
+    const now = Date.now();
+    const s = monthSummary(y, m, dailyTotals(now), now);
+    const rows = [
+      csvRow(['Workline report', MONTHS_FULL[m] + ' ' + y]),
+      csvRow(['Rules', rulesSentence()]),
+      csvRow(['Working days', s.working]),
+      csvRow(['Days worked', s.daysWorked]),
+      csvRow(['Holidays', s.hol]),
+      csvRow(['Leave days', s.leave]),
+      csvRow(['Half days', s.half]),
+      csvRow(['Hours worked', hoursNum(s.workedMs)]),
+      csvRow(['Expected hours (full month)', hoursNum(s.expectedFull)]),
+      csvRow(['Expected hours (' + (s.state === 'current' ? 'through today' : 'to date') + ')', hoursNum(s.expectedToDate)]),
+      csvRow(['Balance hours (+ surplus / - deficit)', s.balance === null ? '' : hoursNum(s.balance)]),
+      '',
+      csvRow(['Date', 'Day', 'Day type', 'Task', 'Start', 'End', 'Hours', 'Note']),
+    ];
+    s.days.forEach(day => {
+      const dow = DOW[new Date(y, m, day.d).getDay()];
+      const type = csvDayType(day);
+      const items = sessions.filter(x => dayKey(x.start) === day.key).sort((a,b) => a.start - b.start);
+      if(active && dayKey(active.start) === day.key){
+        items.push({ task: active.task, start: active.start, end: null, durationMs: now - active.start });
+      }
+      if(!items.length) rows.push(csvRow([day.key, dow, type, '', '', '', '', '']));
+      items.forEach(x => rows.push(csvRow([
+        day.key, dow, type, x.task,
+        toTimeInput(x.start), x.end ? toTimeInput(x.end) : 'running',
+        hoursNum(x.durationMs),
+        x.manual ? 'added manually' : x.edited ? 'edited' : '',
+      ])));
+    });
+    return '﻿' + rows.join('\r\n') + '\r\n';
+  }
+
+  function yearCsv(y){
+    const now = Date.now();
+    const totals = dailyTotals(now);
+    const rows = [
+      csvRow(['Workline year summary', y]),
+      csvRow(['Rules', rulesSentence()]),
+      '',
+      csvRow(['Month', 'Working days', 'Holidays', 'Leave days', 'Half days', 'Days worked', 'Hours worked', 'Expected hours', 'Balance hours']),
+    ];
+    const t = { working: 0, hol: 0, leave: 0, half: 0, days: 0, ms: 0, exp: 0, bal: 0 };
+    for(let m = 0; m < 12; m++){
+      const s = monthSummary(y, m, totals, now);
+      rows.push(csvRow([MONTHS_FULL[m], s.working, s.hol, s.leave, s.half, s.daysWorked,
+        hoursNum(s.workedMs), hoursNum(s.expectedFull), s.balance === null ? '' : hoursNum(s.balance)]));
+      t.working += s.working; t.hol += s.hol; t.leave += s.leave; t.half += s.half;
+      t.days += s.daysWorked; t.ms += s.workedMs; t.exp += s.expectedFull;
+      if(s.balance !== null) t.bal += s.balance;
+    }
+    rows.push(csvRow(['TOTAL', t.working, t.hol, t.leave, t.half, t.days, hoursNum(t.ms), hoursNum(t.exp), hoursNum(t.bal)]));
+    return '﻿' + rows.join('\r\n') + '\r\n';
+  }
+
+  async function copyText(text){
+    try{ await navigator.clipboard.writeText(text); return true; }catch(e){}
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try{ ok = document.execCommand('copy'); }catch(e){}
+    ta.remove();
+    return ok;
+  }
+
+  // Native app: write to the cache folder and open the share sheet (needs the
+  // @capacitor/filesystem + @capacitor/share plugins). Phone browser: Web Share.
+  // Desktop browser: a normal download. Last resort: clipboard.
+  async function shareFile(filename, text, mime){
+    const plugins = isNativeApp && window.Capacitor.Plugins;
+    if(plugins && plugins.Filesystem && plugins.Share){
+      try{
+        const res = await plugins.Filesystem.writeFile({ path: filename, data: text, directory: 'CACHE', encoding: 'utf8' });
+        await plugins.Share.share({ title: filename, files: [res.uri], dialogTitle: 'Save or send ' + filename });
+        return 'shared';
+      }catch(e){
+        if(/cancel/i.test(String(e && e.message))) return 'cancelled';
+        console.error('Native share failed', e);
+      }
+    }
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if(coarse && navigator.canShare && typeof File === 'function'){
+      const file = new File([text], filename, { type: mime });
+      if(navigator.canShare({ files: [file] })){
+        try{
+          await navigator.share({ files: [file], title: filename });
+          return 'shared';
+        }catch(e){
+          if(e && e.name === 'AbortError') return 'cancelled';
+        }
+      }
+    }
+    if(!isNativeApp){
+      const url = URL.createObjectURL(new Blob([text], { type: mime }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      return 'downloaded';
+    }
+    return (await copyText(text)) ? 'copied' : 'failed';
+  }
+
+  function exportResultMessage(how, filename){
+    return how === 'shared' ? 'Shared ' + filename
+      : how === 'downloaded' ? 'Saved ' + filename
+      : how === 'copied' ? 'Copied to clipboard — paste it into a note, email or sheet'
+      : how === 'cancelled' ? 'Cancelled'
+      : 'Could not export on this device';
+  }
+
+  async function exportCsv(which){
+    const y = viewMonth.y, m = viewMonth.m;
+    const filename = which === 'year' ? 'workline-' + y + '-summary.csv' : 'workline-' + y + '-' + pad(m + 1) + '.csv';
+    const how = await shareFile(filename, which === 'year' ? yearCsv(y) : monthCsv(y, m), 'text/csv');
+    toast(exportResultMessage(how, filename));
+  }
+
+  async function backup(){
+    const now = Date.now();
+    const data = { app: 'workline', version: 3, exportedAt: new Date(now).toISOString(), sessions, active, paused, settings, days: dayMarks };
+    const filename = 'workline-backup-' + dayKey(now) + '.json';
+    const how = await shareFile(filename, JSON.stringify(data, null, 1), 'application/json');
+    if(how === 'shared' || how === 'downloaded' || how === 'copied'){
+      settings.lastBackup = now;
+      await saveSettings();
+      renderConfig();
+    }
+    toast(exportResultMessage(how, filename));
+  }
+
+  async function restoreFrom(file){
+    let data;
+    try{ data = JSON.parse(await file.text()); }catch(e){ toast('That file is not a valid backup'); return; }
+    if(!data || data.app !== 'workline' || !Array.isArray(data.sessions)){ toast('That file is not a Workline backup'); return; }
+    const clean = data.sessions.map(normalizeSession).filter(Boolean);
+    if(busy) return;
+    busy = true;
+    try{
+      const when = data.exportedAt ? formatDateLong(Date.parse(data.exportedAt)) : 'an unknown date';
+      const ok = confirm('Replace everything on this device with the backup from ' + when + ' (' + clean.length + ' records)?');
+      if(!ok) return;
+      sessions = clean;
+      active = data.active && typeof data.active.start === 'number' ? { task: String(data.active.task || 'General work'), start: data.active.start } : null;
+      paused = !active && data.paused && typeof data.paused.since === 'number' ? { task: String(data.paused.task || 'General work'), since: data.paused.since } : null;
+      settings = normalizeSettings(data.settings);
+      dayMarks = normalizeMarks(data.days);
+      await saveSessions();
+      await saveActive();
+      await savePaused();
+      await saveSettings();
+      await saveDays();
+      renderAll();
+      if(active || paused) startTicking(); else stopTicking();
+    } finally { busy = false; }
+    toast('Backup restored · ' + clean.length + ' records');
+  }
+
+  // ---------- events ----------
+  el.shiftBtn.addEventListener('click', ()=>{
+    if(active){ clockOut(); } else if(paused){ resumeShift(); } else { clockIn(); }
+  });
+  el.subBtn.addEventListener('click', ()=>{
+    if(active){ startBreak(); } else if(paused){ endFromBreak(); }
+  });
+  el.purgeBtn.addEventListener('click', purgeAll);
+  el.taskInput.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Enter' || active) return;
+    if(paused){ resumeShift(); } else { clockIn(); }
+    el.taskInput.blur();
+  });
+  el.taskChips.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-chip]');
+    if(btn) el.taskInput.value = chipTasks[Number(btn.getAttribute('data-chip'))] || '';
+  });
+  el.editShiftBtn.addEventListener('click', () => openSheet('active'));
+  el.hudWarnFix.addEventListener('click', () => openSheet('active'));
+
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => showTab(t.getAttribute('data-tab')));
+  });
+  el.glanceBtn.addEventListener('click', () => { goToCurrentMonth(); showTab('summary'); });
+  el.rulesEdit.addEventListener('click', () => showTab('config'));
+
+  el.logAdd.addEventListener('click', () => openSheet('add'));
+  el.logBody.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-edit]');
+    if(btn) openSheet('edit', { id: btn.getAttribute('data-edit') });
+  });
+
+  el.prevMonth.addEventListener('click', () => shiftMonth(-1));
+  el.nextMonth.addEventListener('click', () => shiftMonth(1));
+  el.monthSub.addEventListener('click', () => { if(el.monthSub.classList.contains('back')) goToCurrentMonth(); });
+
+  el.calGrid.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-day]');
+    if(!btn) return;
+    const key = btn.getAttribute('data-day');
+    selectedDay = selectedDay === key ? null : key;
+    renderSummary();
+  });
+
+  el.dayDetail.addEventListener('click', (e)=>{
+    const mark = e.target.closest('[data-mark]');
+    if(mark && selectedDay){ setMark(selectedDay, mark.getAttribute('data-mark')); return; }
+    const add = e.target.closest('[data-add-day]');
+    if(add){ openSheet('add', { date: add.getAttribute('data-add-day') }); return; }
+    const edit = e.target.closest('[data-edit]');
+    if(edit){ openSheet('edit', { id: edit.getAttribute('data-edit') }); return; }
+    if(e.target.closest('[data-edit-active]')) openSheet('active');
+  });
+
+  el.yrBody.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-month]');
+    if(!btn) return;
+    viewMonth = { y: viewMonth.y, m: Number(btn.getAttribute('data-month')) };
+    selectedDay = null;
+    renderSummary();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  el.exportMonth.addEventListener('click', () => exportCsv('month'));
+  el.exportYear.addEventListener('click', () => exportCsv('year'));
+
+  // swipe left / right anywhere on the summary to change month
+  let swipe = null;
+  el.summaryView.addEventListener('touchstart', (e)=>{
+    const t = e.touches[0];
+    swipe = { x: t.clientX, y: t.clientY };
+  }, { passive: true });
+  el.summaryView.addEventListener('touchend', (e)=>{
+    if(!swipe) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+    swipe = null;
+    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) shiftMonth(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  el.dailyMinus.addEventListener('click', () => updateSettings({ dailyMins: settings.dailyMins - DAILY_STEP }));
+  el.dailyPlus.addEventListener('click', () => updateSettings({ dailyMins: settings.dailyMins + DAILY_STEP }));
+  el.satSeg.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-sat]');
+    if(btn) updateSettings({ offSat: Number(btn.getAttribute('data-sat')) });
+  });
+
+  el.mkAdd.addEventListener('click', addMarkFromForm);
+  el.mkList.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-unmark]');
+    if(btn) setMark(btn.getAttribute('data-unmark'), 'work');
+  });
+
+  el.backupBtn.addEventListener('click', backup);
+  el.restoreBtn.addEventListener('click', () => el.restoreInput.click());
+  el.restoreInput.addEventListener('change', ()=>{
+    const f = el.restoreInput.files && el.restoreInput.files[0];
+    el.restoreInput.value = '';
+    if(f) restoreFrom(f);
+  });
+
+  [el.fDate, el.fStart, el.fEnd].forEach(inp => {
+    inp.addEventListener('input', updateSheetInfo);
+    inp.addEventListener('change', updateSheetInfo);
+  });
+  el.fSave.addEventListener('click', saveSheet);
+  el.fCancel.addEventListener('click', closeSheet);
+  el.fDelete.addEventListener('click', deleteFromSheet);
+  el.sheetBackdrop.addEventListener('click', closeSheet);
+  el.fTask.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') saveSheet(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && sheetOpen) closeSheet(); });
+  window.addEventListener('popstate', ()=>{
+    if(sheetOpen){ sheetOpen = false; hideSheet(); }
+  });
+
+  // ---------- resume-from-background resync ----------
+  // The elapsed time is always derived from the stored start timestamp, never from
+  // counting ticks, so it is correct the instant we resync — no matter how long the
+  // app was backgrounded, force-killed by the OS, or removed from the recent-apps
+  // switcher. These listeners just make that resync happen immediately on return,
+  // instead of waiting up to a second for the next interval tick.
+  async function resync(){
+    if(busy) return; // a save is mid-flight; reloading now could resurrect old values
+    await loadState();
+    renderAll();
+    if(active || paused){ startTicking(); } else { stopTicking(); }
+  }
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible') resync();
+  });
+  window.addEventListener('pageshow', (e)=>{ if(e.persisted) resync(); });
+  window.addEventListener('focus', resync);
+
+  // ---------- init ----------
+  (async function init(){
+    await loadState();
+    renderAll();
+    if(active || paused){ startTicking(); }
+
+    if('serviceWorker' in navigator){
+      try{ navigator.serviceWorker.register('sw.js'); }catch(e){}
+    }
+  })();
+
+})();
+</script>
+
+</body>
+</html>
